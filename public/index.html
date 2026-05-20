@@ -31,29 +31,32 @@
       margin: 0;
       display: grid;
       place-items: center;
-      padding: 18px;
+      padding: 10px;
       color: var(--ink);
       font-family: "Nunito", system-ui, sans-serif;
+      overflow: hidden;
       background:
-        radial-gradient(circle at 16% 18%, rgba(255, 255, 255, 0.55) 0 11%, transparent 12%),
-        linear-gradient(180deg, var(--sky), #d9f7ff 54%, #b7ef94);
+        linear-gradient(180deg, rgba(255, 255, 255, 0.46), transparent 34%),
+        linear-gradient(180deg, var(--sky), #d9f7ff 48%, #9cdc7d 48%, #79c85f);
     }
 
     .game-shell {
-      width: min(960px, 100%);
+      width: 100%;
+      height: 100vh;
       display: grid;
-      gap: 12px;
+      place-items: center;
+      gap: 0;
       justify-items: center;
     }
 
     .stage {
       position: relative;
-      width: min(800px, calc(100vw - 28px));
+      width: min(calc(100vw - 20px), calc((100vh - 20px) * 4 / 3), 1600px);
       aspect-ratio: 4 / 3;
-      border: 8px solid #fff7d8;
+      border: 6px solid #fff7d8;
       border-radius: 8px;
       overflow: hidden;
-      box-shadow: 0 24px 48px rgba(28, 83, 72, 0.24), 0 6px 0 #d9ad45;
+      box-shadow: 0 28px 64px rgba(28, 83, 72, 0.28), 0 7px 0 #d9ad45;
       background: #204d3c;
     }
 
@@ -580,11 +583,11 @@
 
     @media (max-width: 680px) {
       body {
-        padding: 10px;
+        padding: 6px;
       }
 
       .stage {
-        width: calc(100vw - 20px);
+        width: min(calc(100vw - 12px), calc((100vh - 12px) * 4 / 3));
         border-width: 5px;
       }
 
@@ -2399,6 +2402,70 @@
         }
       }
 
+      function tracePoly(points) {
+        ctx.beginPath();
+        points.forEach((point, index) => {
+          if (index === 0) ctx.moveTo(point[0], point[1]);
+          else ctx.lineTo(point[0], point[1]);
+        });
+        ctx.closePath();
+      }
+
+      function drawFairway(hole) {
+        ctx.save();
+        tracePoly(hole.fairway);
+        ctx.shadowColor = "rgba(0, 0, 0, 0.22)";
+        ctx.shadowBlur = 18;
+        ctx.shadowOffsetY = 10;
+        ctx.fillStyle = "#246b3e";
+        ctx.fill();
+        ctx.restore();
+
+        ctx.save();
+        tracePoly(hole.fairway);
+        const gradient = ctx.createLinearGradient(0, 80, 800, 560);
+        gradient.addColorStop(0, "#9af06a");
+        gradient.addColorStop(0.52, "#78dc58");
+        gradient.addColorStop(1, "#58c84c");
+        ctx.fillStyle = gradient;
+        ctx.fill();
+        ctx.clip();
+
+        ctx.globalAlpha = 0.16;
+        for (let x = -120; x < W + 120; x += 54) {
+          ctx.fillStyle = (Math.floor((x + 120) / 54) % 2) ? "#e7ffd0" : "#319f49";
+          ctx.save();
+          ctx.translate(x, 0);
+          ctx.rotate(-0.13);
+          ctx.fillRect(0, -120, 28, H + 240);
+          ctx.restore();
+        }
+
+        ctx.globalAlpha = 0.18;
+        ctx.fillStyle = "#e8ffd8";
+        for (let y = -40; y < H + 40; y += 42) {
+          ctx.beginPath();
+          ctx.moveTo(-20, y);
+          ctx.bezierCurveTo(210, y + 20, 438, y - 24, 820, y + 15);
+          ctx.lineTo(820, y + 35);
+          ctx.bezierCurveTo(438, y - 4, 210, y + 40, -20, y + 18);
+          ctx.closePath();
+          ctx.fill();
+        }
+        ctx.restore();
+
+        ctx.save();
+        tracePoly(hole.fairway);
+        ctx.strokeStyle = "#1f6a3d";
+        ctx.lineWidth = 10;
+        ctx.lineJoin = "round";
+        ctx.stroke();
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.34)";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.restore();
+      }
+
       function drawEllipseShape(shape, fill, stroke) {
         ctx.save();
         ctx.translate(shape.x, shape.y);
@@ -2421,20 +2488,32 @@
       }
 
       function drawBunker(bunker, index) {
-        drawEllipseShape(bunker, "#edcf77", "#d7ab4e");
         ctx.save();
         ctx.translate(bunker.x, bunker.y);
         ctx.rotate(bunker.rot || 0);
-        ctx.strokeStyle = "rgba(123, 86, 30, 0.34)";
-        ctx.lineWidth = 6;
+        ctx.fillStyle = "rgba(0, 0, 0, 0.14)";
+        ctx.beginPath();
+        ctx.ellipse(3, 6, bunker.rx + 2, bunker.ry + 2, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        drawEllipseShape(bunker, "#f1d37e", "#c9963d");
+        ctx.save();
+        ctx.translate(bunker.x, bunker.y);
+        ctx.rotate(bunker.rot || 0);
+        ctx.strokeStyle = "rgba(123, 86, 30, 0.28)";
+        ctx.lineWidth = 7;
         ctx.beginPath();
         ctx.ellipse(0, 0, bunker.rx, bunker.ry, 0, 0, Math.PI * 2);
         ctx.stroke();
-        ctx.strokeStyle = "rgba(255, 247, 216, 0.42)";
+        ctx.strokeStyle = "rgba(255, 249, 224, 0.58)";
         ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.ellipse(0, 0, bunker.rx - 4, bunker.ry - 4, 0, 0, Math.PI * 2);
-        ctx.stroke();
+        for (let y = -bunker.ry * 0.45; y <= bunker.ry * 0.5; y += 9) {
+          ctx.beginPath();
+          ctx.moveTo(-bunker.rx * 0.62, y);
+          ctx.quadraticCurveTo(0, y - 7, bunker.rx * 0.62, y);
+          ctx.stroke();
+        }
         ctx.restore();
         ctx.save();
         ctx.translate(bunker.x, bunker.y);
@@ -2454,7 +2533,15 @@
 
       function drawWater(water) {
         if (water.type === "ellipse") {
-          drawEllipseShape(water, "#4cc2ff", "#238ccc");
+          ctx.save();
+          ctx.translate(water.x, water.y);
+          ctx.rotate(water.rot || 0);
+          ctx.fillStyle = "rgba(0, 0, 0, 0.13)";
+          ctx.beginPath();
+          ctx.ellipse(3, 6, water.rx + 2, water.ry + 2, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+          drawEllipseShape(water, "#4cc2ff", "#1f83c4");
           ctx.save();
           ctx.translate(water.x, water.y);
           ctx.rotate(water.rot || 0);
@@ -2468,9 +2555,21 @@
           }
           ctx.restore();
         } else if (water.type === "poly") {
-          drawPoly(water.points, "#4cc2ff", "#238ccc", 3);
+          drawPoly(water.points.map(([x, y]) => [x + 3, y + 6]), "rgba(0, 0, 0, 0.13)", null, 0);
+          drawPoly(water.points, "#4cc2ff", "#1f83c4", 4);
           ctx.save();
+          tracePoly(water.points);
           ctx.clip();
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.42)";
+          ctx.lineWidth = 2;
+          for (let y = 0; y < H; y += 18) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.quadraticCurveTo(140, y - 8, 280, y);
+            ctx.quadraticCurveTo(420, y + 8, 560, y);
+            ctx.quadraticCurveTo(700, y - 8, 840, y);
+            ctx.stroke();
+          }
           ctx.restore();
         }
       }
@@ -2538,6 +2637,12 @@
         ctx.lineCap = "round";
         ctx.lineJoin = "round";
         (hole.walls || []).forEach(wall => {
+          ctx.strokeStyle = "rgba(0, 0, 0, 0.2)";
+          ctx.lineWidth = (wall.width || 12) + 6;
+          ctx.beginPath();
+          ctx.moveTo(wall.x1 + 3, wall.y1 + 5);
+          ctx.lineTo(wall.x2 + 3, wall.y2 + 5);
+          ctx.stroke();
           ctx.strokeStyle = wall.color || "#216d57";
           ctx.lineWidth = wall.width || 12;
           ctx.beginPath();
@@ -2554,6 +2659,9 @@
       function drawBlocks(hole) {
         (hole.blocks || []).forEach(block => {
           if (block.type === "rect") {
+            ctx.fillStyle = "rgba(0, 0, 0, 0.17)";
+            roundRect(block.x + 3, block.y + 6, block.w, block.h, 6);
+            ctx.fill();
             ctx.fillStyle = block.color || "#2b714e";
             roundRect(block.x, block.y, block.w, block.h, 6);
             ctx.fill();
@@ -2561,6 +2669,7 @@
             ctx.lineWidth = 2;
             ctx.stroke();
           } else if (block.type === "poly") {
+            drawPoly(block.points.map(([x, y]) => [x + 3, y + 6]), "rgba(0, 0, 0, 0.17)", null, 0);
             drawPoly(block.points, block.color || "#2b714e", "rgba(255,255,255,0.18)", 2);
           }
         });
@@ -2583,6 +2692,10 @@
 
       function drawBumpers(hole) {
         (hole.bumpers || []).forEach(bumper => {
+          ctx.fillStyle = "rgba(0, 0, 0, 0.18)";
+          ctx.beginPath();
+          ctx.ellipse(bumper.x + 4, bumper.y + 7, bumper.r * 1.05, bumper.r * 0.72, 0, 0, Math.PI * 2);
+          ctx.fill();
           const gradient = ctx.createRadialGradient(
             bumper.x - bumper.r * 0.35,
             bumper.y - bumper.r * 0.4,
@@ -2815,32 +2928,33 @@
         ctx.fillRect(0, 0, W, H);
 
         ctx.save();
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
-        ctx.lineWidth = 1;
-        for (let x = -H; x < W; x += 28) {
+        const roughGradient = ctx.createLinearGradient(0, 0, W, H);
+        roughGradient.addColorStop(0, "#255f46");
+        roughGradient.addColorStop(0.55, "#1f503c");
+        roughGradient.addColorStop(1, "#173b31");
+        ctx.fillStyle = roughGradient;
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+
+        ctx.save();
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.055)";
+        ctx.lineWidth = 2;
+        for (let x = -H; x < W; x += 34) {
           ctx.beginPath();
           ctx.moveTo(x, 0);
           ctx.lineTo(x + H, H);
           ctx.stroke();
         }
-        ctx.restore();
-
-        drawPoly(hole.fairway, "#7ee15b", "#246b3e", 6);
-
-        ctx.save();
-        ctx.clip();
-        ctx.globalAlpha = 0.17;
-        ctx.fillStyle = "#4ec24d";
-        for (let y = -40; y < H + 40; y += 34) {
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.045)";
+        for (let x = -H; x < W; x += 34) {
           ctx.beginPath();
-          ctx.moveTo(0, y);
-          ctx.bezierCurveTo(220, y + 24, 420, y - 22, 800, y + 16);
-          ctx.lineTo(800, y + 34);
-          ctx.bezierCurveTo(420, y - 2, 220, y + 44, 0, y + 20);
-          ctx.closePath();
-          ctx.fill();
+          ctx.moveTo(x + 17, 0);
+          ctx.lineTo(x + H + 17, H);
+          ctx.stroke();
         }
         ctx.restore();
+
+        drawFairway(hole);
 
         (hole.waters || []).forEach(drawWater);
         (hole.bunkers || []).forEach(drawBunker);
