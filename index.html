@@ -194,6 +194,64 @@
       box-shadow: 0 5px 12px rgba(22, 51, 58, 0.13);
     }
 
+    .builder-tools {
+      position: absolute;
+      z-index: 8;
+      left: 14px;
+      right: 14px;
+      bottom: 14px;
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+      border-radius: 8px;
+      border: 3px solid rgba(255, 247, 216, 0.82);
+      background: rgba(255, 250, 240, 0.95);
+      box-shadow: 0 14px 30px rgba(18, 50, 45, 0.24);
+    }
+
+    .builder-tools.hidden {
+      display: none;
+    }
+
+    .builder-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .builder-tools input,
+    .builder-tools select {
+      height: 36px;
+      border: 2px solid rgba(31, 140, 87, 0.24);
+      border-radius: 8px;
+      padding: 0 9px;
+      color: var(--ink);
+      background: white;
+      font: 900 14px/1 "Nunito", system-ui, sans-serif;
+    }
+
+    .builder-tools input[type="number"] {
+      width: 68px;
+    }
+
+    .builder-tools button {
+      min-width: 0;
+      padding: 8px 12px;
+      font-size: 14px;
+      box-shadow: 0 4px 0 rgba(31, 140, 87, 0.34), 0 8px 14px rgba(22, 51, 58, 0.12);
+    }
+
+    .builder-status {
+      min-height: 18px;
+      margin: 0;
+      color: #55716b;
+      font-size: 13px;
+      font-weight: 900;
+      text-align: center;
+    }
+
     .screen,
     .modal {
       position: absolute;
@@ -648,6 +706,30 @@
         <div class="power-track"><div id="powerFill" class="power-fill"></div></div>
       </div>
 
+      <div id="builderTools" class="builder-tools hidden">
+        <div class="builder-row">
+          <input id="builderName" maxlength="28" value="My Custom Hole" aria-label="Hole name">
+          <label>Par <input id="builderPar" type="number" min="1" max="9" value="3" aria-label="Par"></label>
+          <select id="builderTool" aria-label="Builder tool">
+            <option value="tee">Tee</option>
+            <option value="cup">Cup</option>
+            <option value="wall">Wall</option>
+            <option value="bumper">Bumper</option>
+            <option value="bunker">Bunker</option>
+            <option value="water">Water</option>
+            <option value="erase">Erase</option>
+          </select>
+          <select id="savedHoleSelect" aria-label="Saved holes"></select>
+        </div>
+        <div class="builder-row">
+          <button id="saveBuilderButton" type="button">Save Hole</button>
+          <button id="playBuilderButton" type="button">Play Saved</button>
+          <button id="newBuilderButton" class="secondary-button" type="button">New</button>
+          <button id="builderBackButton" class="secondary-button" type="button">Back</button>
+        </div>
+        <p id="builderStatus" class="builder-status">Choose a tool, then click the course. Walls use two clicks.</p>
+      </div>
+
       <div id="modeScreen" class="screen">
         <div class="start-panel">
           <div class="logo" aria-hidden="true">⛳</div>
@@ -656,6 +738,7 @@
           <div class="menu-stack">
             <button id="localModeButton" type="button">Local Play</button>
             <button id="multiplayerModeButton" type="button">Multiplayer</button>
+            <button id="builderModeButton" type="button">Build Holes</button>
           </div>
         </div>
       </div>
@@ -759,6 +842,7 @@
       const STATES = {
         START: "START",
         PLAYING: "PLAYING",
+        BUILDER: "BUILDER",
         HOLE_COMPLETE: "HOLE_COMPLETE",
         GAME_OVER: "GAME_OVER"
       };
@@ -784,9 +868,20 @@
         hudHint: document.getElementById("hudHint"),
         powerMeter: document.getElementById("powerMeter"),
         powerFill: document.getElementById("powerFill"),
+        builderTools: document.getElementById("builderTools"),
+        builderName: document.getElementById("builderName"),
+        builderPar: document.getElementById("builderPar"),
+        builderTool: document.getElementById("builderTool"),
+        savedHoleSelect: document.getElementById("savedHoleSelect"),
+        saveBuilderButton: document.getElementById("saveBuilderButton"),
+        playBuilderButton: document.getElementById("playBuilderButton"),
+        newBuilderButton: document.getElementById("newBuilderButton"),
+        builderBackButton: document.getElementById("builderBackButton"),
+        builderStatus: document.getElementById("builderStatus"),
         modeScreen: document.getElementById("modeScreen"),
         localModeButton: document.getElementById("localModeButton"),
         multiplayerModeButton: document.getElementById("multiplayerModeButton"),
+        builderModeButton: document.getElementById("builderModeButton"),
         startScreen: document.getElementById("startScreen"),
         startButton: document.getElementById("startButton"),
         localBackButton: document.getElementById("localBackButton"),
@@ -988,6 +1083,7 @@
       const BEST_ROUND_KEY = "miniGolfBestRoundV1";
       const MP_NAME_KEY = "miniGolfPlayerNameV1";
       const MP_CLIENT_KEY = "miniGolfClientIdV1";
+      const CUSTOM_HOLES_KEY = "miniGolfCustomHolesV1";
       const MP_SYNC_INTERVAL = 1 / 30;
       const MP_HOLE_ADVANCE_DELAY = 3.4;
       const PLAYER_COLORS = ["#1f8c57", "#d94b4b", "#2f6fd6", "#9a55cf"];
@@ -1033,6 +1129,11 @@
         return cleaned || fallback;
       }
 
+      function cleanHoleName(name, fallback = "Custom Hole") {
+        const cleaned = String(name || "").trim().replace(/\s+/g, " ").slice(0, 28);
+        return cleaned || fallback;
+      }
+
       function multiplayerName() {
         const name = cleanPlayerName(els.playerNameInput.value, "Player");
         els.playerNameInput.value = name;
@@ -1074,7 +1175,11 @@
       }
 
       function totalCoursePar() {
-        return holes.reduce((sum, hole) => sum + hole.par, 0);
+        return activeCourse().reduce((sum, hole) => sum + hole.par, 0);
+      }
+
+      function activeCourse() {
+        return game.course || holes;
       }
 
       function createPlayers(count) {
@@ -1132,12 +1237,15 @@
         ].forEach(item => item.classList.add("hidden"));
         if (screen) screen.classList.remove("hidden");
         els.hud.classList.toggle("visible", game.state === STATES.PLAYING);
+        els.builderTools.classList.add("hidden");
       }
 
       function showModeMenu() {
         mp.enabled = false;
+        game.course = null;
         game.state = STATES.START;
         els.hud.classList.remove("visible");
+        els.builderTools.classList.add("hidden");
         showScreen(els.modeScreen);
       }
 
@@ -1153,6 +1261,120 @@
         getMultiplayerClientId();
         loadMultiplayerName();
         showScreen(els.multiplayerMenu);
+      }
+
+      function defaultCustomHole() {
+        return {
+          id: "",
+          name: "My Custom Hole",
+          par: 3,
+          tee: { x: 120, y: 300 },
+          cup: { x: 680, y: 300 },
+          fairway: [[48, 64], [752, 64], [752, 536], [48, 536]],
+          bunkers: [],
+          waters: [],
+          bumpers: [],
+          walls: [],
+          blocks: [],
+          custom: true
+        };
+      }
+
+      function cloneHole(hole) {
+        return JSON.parse(JSON.stringify(hole));
+      }
+
+      function loadCustomHoles() {
+        try {
+          const saved = JSON.parse(localStorage.getItem(CUSTOM_HOLES_KEY) || "[]");
+          return Array.isArray(saved) ? saved : [];
+        } catch (err) {
+          return [];
+        }
+      }
+
+      function saveCustomHoles(list) {
+        localStorage.setItem(CUSTOM_HOLES_KEY, JSON.stringify(list));
+      }
+
+      function refreshSavedHoleSelect() {
+        const saved = loadCustomHoles();
+        els.savedHoleSelect.innerHTML = saved.length
+          ? saved.map(hole => `<option value="${hole.id}">${hole.name}</option>`).join("")
+          : `<option value="">No saved holes</option>`;
+      }
+
+      function syncBuilderInputs() {
+        els.builderName.value = builder.hole.name;
+        els.builderPar.value = builder.hole.par;
+      }
+
+      function showBuilder() {
+        mp.enabled = false;
+        game.course = null;
+        game.state = STATES.BUILDER;
+        builder.hole = builder.hole || defaultCustomHole();
+        builder.pendingWall = null;
+        syncBuilderInputs();
+        refreshSavedHoleSelect();
+        showScreen(null);
+        els.hud.classList.remove("visible");
+        els.powerMeter.classList.remove("visible");
+        els.builderTools.classList.remove("hidden");
+        setBuilderStatus("Choose a tool, then click the course. Walls use two clicks.");
+      }
+
+      function setBuilderStatus(message) {
+        els.builderStatus.textContent = message;
+      }
+
+      function saveBuilderHole() {
+        builder.hole.name = cleanHoleName(els.builderName.value, "Custom Hole");
+        builder.hole.par = clamp(Number(els.builderPar.value) || 3, 1, 9);
+        const saved = loadCustomHoles();
+        const id = builder.hole.id || `h_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+        builder.hole.id = id;
+        const next = cloneHole(builder.hole);
+        const index = saved.findIndex(hole => hole.id === id);
+        if (index >= 0) saved[index] = next;
+        else saved.push(next);
+        saveCustomHoles(saved);
+        refreshSavedHoleSelect();
+        els.savedHoleSelect.value = id;
+        setBuilderStatus(`Saved "${next.name}".`);
+      }
+
+      function loadSelectedBuilderHole() {
+        const saved = loadCustomHoles();
+        const selected = saved.find(hole => hole.id === els.savedHoleSelect.value);
+        if (!selected) return null;
+        builder.hole = cloneHole(selected);
+        builder.pendingWall = null;
+        syncBuilderInputs();
+        return builder.hole;
+      }
+
+      function playSelectedCustomHole() {
+        const hole = loadSelectedBuilderHole() || builder.hole;
+        if (!hole) {
+          setBuilderStatus("Save or select a hole first.");
+          return;
+        }
+        resumeAudio();
+        mp.enabled = false;
+        game.course = [cloneHole(hole)];
+        game.players = createPlayers(1);
+        game.playerIndex = 0;
+        game.scorecard = [];
+        els.nextButton.style.display = "";
+        loadHole(0, 0);
+      }
+
+      function newBuilderHole() {
+        builder.hole = defaultCustomHole();
+        builder.pendingWall = null;
+        syncBuilderInputs();
+        setBuilderStatus("New hole ready.");
       }
 
       function setStatus(element, message, isError = false) {
@@ -1327,11 +1549,18 @@
         completion: null,
         audio: null,
         rolling: null,
-        wallSoundCooldown: 0
+        wallSoundCooldown: 0,
+        course: null
+      };
+
+      const builder = {
+        hole: null,
+        pendingWall: null,
+        editingId: ""
       };
 
       function currentHole() {
-        return holes[game.holeIndex];
+        return activeCourse()[game.holeIndex];
       }
 
       function resetBallToTee(hole) {
@@ -1367,6 +1596,7 @@
         els.holeComplete.classList.add("hidden");
         els.gameOver.classList.add("hidden");
         els.startScreen.classList.add("hidden");
+        els.builderTools.classList.add("hidden");
         els.hud.classList.add("visible");
         updateHUD();
       }
@@ -1374,6 +1604,7 @@
       function startGame() {
         resumeAudio();
         mp.enabled = false;
+        game.course = null;
         els.nextButton.style.display = "";
         updateBestRoundDisplay();
         game.players = createPlayers(selectedPlayerCount);
@@ -1416,7 +1647,7 @@
         const hole = currentHole();
         const player = activePlayer();
         const scoreNow = totalStrokes();
-        els.hudHole.textContent = `${game.holeIndex + 1} / ${holes.length}`;
+        els.hudHole.textContent = `${game.holeIndex + 1} / ${activeCourse().length}`;
         els.hudPlayer.textContent = player.name.replace("Player ", "P");
         els.hudPlayer.style.color = player.color;
         els.hudPar.textContent = String(hole.par);
@@ -1439,7 +1670,7 @@
         if (game.playerIndex < game.players.length - 1) {
           return `${game.players[game.playerIndex + 1].name} on Hole ${game.holeIndex + 1}`;
         }
-        if (game.holeIndex < holes.length - 1) {
+        if (game.holeIndex < activeCourse().length - 1) {
           return `${game.players[0].name} on Hole ${game.holeIndex + 2}`;
         }
         return "the final scorecard";
@@ -1449,7 +1680,7 @@
         if (game.playerIndex < game.players.length - 1) {
           return `Next: ${game.players[game.playerIndex + 1].name}`;
         }
-        return game.holeIndex === holes.length - 1 ? "Show Scorecard" : "Next Hole";
+        return game.holeIndex === activeCourse().length - 1 ? "Show Scorecard" : "Next Hole";
       }
 
       function finishHole(options = {}) {
@@ -1503,7 +1734,7 @@
         if (game.state !== STATES.HOLE_COMPLETE && !game.completion) return;
         if (game.playerIndex < game.players.length - 1) {
           loadHole(game.holeIndex, game.playerIndex + 1);
-        } else if (game.holeIndex >= holes.length - 1) {
+        } else if (game.holeIndex >= activeCourse().length - 1) {
           showFinalScorecard();
         } else {
           loadHole(game.holeIndex + 1, 0);
@@ -1536,7 +1767,11 @@
         }));
         const lowScore = Math.min(...totals.map(total => total.strokes));
 
-        if (players.length === 1) {
+        if (game.course) {
+          const strokeTotal = totals[0].strokes;
+          const deltaTotal = strokeTotal - parTotal;
+          els.recordBanner.textContent = `Custom hole complete: ${strokeTotal} strokes (${formatDelta(deltaTotal)}).`;
+        } else if (players.length === 1) {
           const strokeTotal = totals[0].strokes;
           const deltaTotal = strokeTotal - parTotal;
           const previousBest = loadBestRound();
@@ -1562,7 +1797,7 @@
         }
 
         const playerHeadings = players.map(player => `<th>${player.name}</th>`).join("");
-        const body = holes.map((hole, index) => `
+        const body = activeCourse().map((hole, index) => `
           <tr>
             <td>${index + 1}</td>
             <td>${hole.par}</td>
@@ -2981,8 +3216,34 @@
         ctx.restore();
       }
 
+      function drawBuilderOverlay() {
+        if (game.state !== STATES.BUILDER || !builder.hole) return;
+        ctx.save();
+        ctx.fillStyle = "rgba(255, 250, 240, 0.94)";
+        ctx.strokeStyle = "rgba(22, 51, 58, 0.18)";
+        ctx.lineWidth = 2;
+        roundRect(18, 18, 360, 36, 8);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = "#1f8c57";
+        ctx.font = "900 16px Nunito, sans-serif";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "middle";
+        ctx.fillText(`Builder: ${builder.hole.name}  |  Tool: ${els.builderTool.value}`, 32, 36);
+        if (builder.pendingWall) {
+          ctx.setLineDash([8, 6]);
+          ctx.strokeStyle = "#ffcf3d";
+          ctx.lineWidth = 5;
+          ctx.beginPath();
+          ctx.moveTo(builder.pendingWall.x, builder.pendingWall.y);
+          ctx.lineTo(game.mouse.x, game.mouse.y);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
       function render() {
-        const hole = currentHole() || holes[0];
+        const hole = game.state === STATES.BUILDER ? builder.hole : (currentHole() || holes[0]);
         ctx.clearRect(0, 0, W, H);
 
         ctx.fillStyle = "#1f4d3b";
@@ -3025,11 +3286,96 @@
         drawWalls(hole);
         drawBumpers(hole);
         drawWindmill(hole);
-        drawAimLine();
-        if (mp.enabled) drawMultiplayerBalls();
-        else drawBall();
+        if (game.state !== STATES.BUILDER) {
+          drawAimLine();
+          if (mp.enabled) drawMultiplayerBalls();
+          else drawBall();
+        }
         drawConfetti();
         if (game.state === STATES.PLAYING) drawCourseTitle(hole);
+        drawBuilderOverlay();
+      }
+
+      function distanceToSegment(point, wall) {
+        const vx = wall.x2 - wall.x1;
+        const vy = wall.y2 - wall.y1;
+        const wx = point.x - wall.x1;
+        const wy = point.y - wall.y1;
+        const len2 = vx * vx + vy * vy || 1;
+        const t = clamp((wx * vx + wy * vy) / len2, 0, 1);
+        const x = wall.x1 + vx * t;
+        const y = wall.y1 + vy * t;
+        return Math.hypot(point.x - x, point.y - y);
+      }
+
+      function eraseBuilderItem(point) {
+        const hole = builder.hole;
+        const bumperIndex = hole.bumpers.findIndex(item => Math.hypot(point.x - item.x, point.y - item.y) <= item.r + 12);
+        if (bumperIndex >= 0) {
+          hole.bumpers.splice(bumperIndex, 1);
+          return "Removed bumper.";
+        }
+        const bunkerIndex = hole.bunkers.findIndex(item => Math.abs(point.x - item.x) <= item.rx + 12 && Math.abs(point.y - item.y) <= item.ry + 12);
+        if (bunkerIndex >= 0) {
+          hole.bunkers.splice(bunkerIndex, 1);
+          return "Removed bunker.";
+        }
+        const waterIndex = hole.waters.findIndex(item => item.type === "ellipse" && Math.abs(point.x - item.x) <= item.rx + 12 && Math.abs(point.y - item.y) <= item.ry + 12);
+        if (waterIndex >= 0) {
+          hole.waters.splice(waterIndex, 1);
+          return "Removed water.";
+        }
+        const wallIndex = hole.walls.findIndex(wall => distanceToSegment(point, wall) <= 14);
+        if (wallIndex >= 0) {
+          hole.walls.splice(wallIndex, 1);
+          return "Removed wall.";
+        }
+        if (Math.hypot(point.x - hole.tee.x, point.y - hole.tee.y) < 24) return "Use the Tee tool to move the tee.";
+        if (Math.hypot(point.x - hole.cup.x, point.y - hole.cup.y) < 24) return "Use the Cup tool to move the cup.";
+        return "Nothing nearby to erase.";
+      }
+
+      function handleBuilderCanvasClick(point) {
+        if (!builder.hole) return;
+        const tool = els.builderTool.value;
+        builder.hole.name = cleanHoleName(els.builderName.value, "Custom Hole");
+        builder.hole.par = clamp(Number(els.builderPar.value) || 3, 1, 9);
+        if (tool !== "wall") builder.pendingWall = null;
+
+        if (tool === "tee") {
+          builder.hole.tee = { x: point.x, y: point.y };
+          setBuilderStatus("Moved tee.");
+        } else if (tool === "cup") {
+          builder.hole.cup = { x: point.x, y: point.y };
+          setBuilderStatus("Moved cup.");
+        } else if (tool === "bumper") {
+          builder.hole.bumpers.push({ x: point.x, y: point.y, r: 24, color: "#ff7a7a" });
+          setBuilderStatus("Added bumper.");
+        } else if (tool === "bunker") {
+          builder.hole.bunkers.push({ x: point.x, y: point.y, rx: 64, ry: 24, rot: 0 });
+          setBuilderStatus("Added bunker.");
+        } else if (tool === "water") {
+          builder.hole.waters.push({ type: "ellipse", x: point.x, y: point.y, rx: 62, ry: 34, rot: 0 });
+          setBuilderStatus("Added water.");
+        } else if (tool === "wall") {
+          if (!builder.pendingWall) {
+            builder.pendingWall = { x: point.x, y: point.y };
+            setBuilderStatus("Wall start placed. Click the end point.");
+          } else {
+            builder.hole.walls.push({
+              x1: builder.pendingWall.x,
+              y1: builder.pendingWall.y,
+              x2: point.x,
+              y2: point.y,
+              width: 15,
+              color: "#216d57"
+            });
+            builder.pendingWall = null;
+            setBuilderStatus("Added wall.");
+          }
+        } else if (tool === "erase") {
+          setBuilderStatus(eraseBuilderItem(point));
+        }
       }
 
       function onPointerMove(evt) {
@@ -3045,6 +3391,12 @@
       }
 
       function onPointerDown(evt) {
+        if (game.state === STATES.BUILDER) {
+          const p = getMousePoint(evt);
+          game.mouse = { ...p, inside: true };
+          handleBuilderCanvasClick(p);
+          return;
+        }
         if (game.state !== STATES.PLAYING || !ballStopped()) return;
         if (mp.enabled && getMultiplayerActivePlayer()?.id !== mp.selfId) return;
         resumeAudio();
@@ -3208,6 +3560,7 @@
       window.addEventListener("keydown", handleKeyDown);
       els.localModeButton.addEventListener("click", showLocalMenu);
       els.multiplayerModeButton.addEventListener("click", showMultiplayerMenu);
+      els.builderModeButton.addEventListener("click", showBuilder);
       els.localBackButton.addEventListener("click", showModeMenu);
       els.hostButton.addEventListener("click", hostGame);
       els.joinButton.addEventListener("click", showJoinGame);
@@ -3234,6 +3587,19 @@
       els.nextButton.addEventListener("pointerup", handleNextHoleInput);
       els.nextButton.addEventListener("click", handleNextHoleInput);
       els.againButton.addEventListener("click", startGame);
+      els.saveBuilderButton.addEventListener("click", saveBuilderHole);
+      els.playBuilderButton.addEventListener("click", playSelectedCustomHole);
+      els.newBuilderButton.addEventListener("click", newBuilderHole);
+      els.builderBackButton.addEventListener("click", showModeMenu);
+      els.savedHoleSelect.addEventListener("change", () => {
+        if (loadSelectedBuilderHole()) setBuilderStatus("Loaded saved hole.");
+      });
+      els.builderName.addEventListener("input", () => {
+        if (builder.hole) builder.hole.name = cleanHoleName(els.builderName.value, "Custom Hole");
+      });
+      els.builderPar.addEventListener("input", () => {
+        if (builder.hole) builder.hole.par = clamp(Number(els.builderPar.value) || 3, 1, 9);
+      });
 
       loadMultiplayerName();
       updateBestRoundDisplay();
