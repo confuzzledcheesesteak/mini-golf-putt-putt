@@ -637,7 +637,7 @@
           <div class="pill"><span>Hole</span><strong id="hudHole">1 / 9</strong></div>
           <div class="pill"><span>Player</span><strong id="hudPlayer">P1</strong></div>
           <div class="pill"><span>Par</span><strong id="hudPar">2</strong></div>
-          <div class="pill"><span>Strokes</span><strong id="hudStrokes">0 / 7</strong></div>
+          <div class="pill"><span>Strokes</span><strong id="hudStrokes">0</strong></div>
           <div class="pill"><span>Total</span><strong id="hudTotal">0</strong></div>
         </div>
         <div class="hint" id="hudHint">Hover to line up. Drag back and release to putt.</div>
@@ -765,7 +765,6 @@
 
       const BALL_R = 9;
       const CUP_R = 15;
-      const MAX_STROKES = 7;
       const MAX_DRAG = 155;
       const FRICTION = 0.985;
       const STOP_SPEED = 7;
@@ -1407,7 +1406,7 @@
           els.hudPlayer.textContent = active.name;
           els.hudPlayer.style.color = active.color;
           els.hudPar.textContent = String(holes[mp.state.holeIndex].par);
-          els.hudStrokes.textContent = `${active.strokes} / ${MAX_STROKES}`;
+          els.hudStrokes.textContent = String(active.strokes);
           els.hudTotal.textContent = String(active.total + active.strokes);
           els.hudHint.textContent = canShoot
             ? "Your turn. Drag back and release to putt."
@@ -1421,7 +1420,7 @@
         els.hudPlayer.textContent = player.name.replace("Player ", "P");
         els.hudPlayer.style.color = player.color;
         els.hudPar.textContent = String(hole.par);
-        els.hudStrokes.textContent = `${game.strokes} / ${MAX_STROKES}`;
+        els.hudStrokes.textContent = String(game.strokes);
         els.hudTotal.textContent = String(scoreNow);
       }
 
@@ -1457,8 +1456,7 @@
         if (game.state !== STATES.PLAYING) return;
         const hole = currentHole();
         const player = activePlayer();
-        const penaltyLimit = Boolean(options.penaltyLimit);
-        const recordedStrokes = penaltyLimit ? hole.par + 7 : Math.max(1, game.strokes);
+        const recordedStrokes = Math.max(1, game.strokes);
         const row = {
           hole: game.holeIndex + 1,
           name: hole.name,
@@ -1468,7 +1466,7 @@
           strokes: recordedStrokes,
           delta: recordedStrokes - hole.par,
           label: scoreLabel(recordedStrokes, hole.par),
-          penaltyLimit
+          penaltyLimit: false
         };
 
         player.scorecard.push(row);
@@ -1476,7 +1474,7 @@
         game.completion = row;
         game.state = STATES.HOLE_COMPLETE;
         game.holeFinishedAt = game.time;
-        game.autoAdvanceAt = penaltyLimit ? game.time + 2.6 : 0;
+        game.autoAdvanceAt = 0;
         game.ball.vx = 0;
         game.ball.vy = 0;
         game.dragging = false;
@@ -1484,14 +1482,14 @@
         updatePowerMeter();
         updateRollingSound();
 
-        els.completeTitle.textContent = penaltyLimit ? `${player.name}: Stroke Limit!` : `${player.name} - Hole ${row.hole} Complete!`;
-        els.completeLabel.textContent = penaltyLimit ? "+7 Penalty" : row.label;
-        els.completeStrokes.textContent = penaltyLimit ? `${recordedStrokes}` : `${recordedStrokes}`;
+        els.completeTitle.textContent = `${player.name} - Hole ${row.hole} Complete!`;
+        els.completeLabel.textContent = row.label;
+        els.completeStrokes.textContent = `${recordedStrokes}`;
         els.completePar.textContent = String(row.par);
         els.completeDelta.textContent = formatDelta(row.delta);
         els.autoNote.textContent = game.players.length > 1
-          ? `${penaltyLimit ? "Auto-advancing. " : ""}Next up: ${nextTurnLabel()}.`
-          : (penaltyLimit ? "Auto-advancing in a moment." : "");
+          ? `Next up: ${nextTurnLabel()}.`
+          : "";
         els.nextButton.textContent = nextButtonLabel();
         els.holeComplete.classList.remove("hidden");
         els.hud.classList.remove("visible");
@@ -1571,7 +1569,7 @@
             ${players.map(player => {
               const row = player.scorecard[index];
               if (!row) return "<td>-</td>";
-              return `<td>${row.strokes}${row.penaltyLimit ? " *" : ""}<br><small>${formatDelta(row.delta)}</small></td>`;
+              return `<td>${row.strokes}<br><small>${formatDelta(row.delta)}</small></td>`;
             }).join("")}
           </tr>
         `).join("");
@@ -1844,10 +1842,10 @@
         }
       }
 
-      function completeMultiplayerPlayer(player, penaltyLimit = false) {
+      function completeMultiplayerPlayer(player) {
         if (player.completed) return;
         const hole = holes[mp.state.holeIndex];
-        const strokes = penaltyLimit ? hole.par + 7 : Math.max(1, player.strokes);
+        const strokes = Math.max(1, player.strokes);
         const row = {
           hole: mp.state.holeIndex + 1,
           name: hole.name,
@@ -1857,10 +1855,10 @@
           strokes,
           delta: strokes - hole.par,
           label: scoreLabel(strokes, hole.par),
-          penaltyLimit
+          penaltyLimit: false
         };
         player.completed = true;
-        player.penaltyLimit = penaltyLimit;
+        player.penaltyLimit = false;
         player.ball.sunk = true;
         player.ball.vx = 0;
         player.ball.vy = 0;
@@ -1888,7 +1886,7 @@
         els.completeStrokes.textContent = rows.map(row => row.strokes).join(" / ");
         els.completePar.textContent = String(holes[mp.state.holeIndex].par);
         els.completeDelta.textContent = formatDelta(best - holes[mp.state.holeIndex].par);
-        const scores = rows.map(row => `${row.player}: ${row.strokes}${row.penaltyLimit ? "*" : ""}`).join("  |  ");
+        const scores = rows.map(row => `${row.player}: ${row.strokes}`).join("  |  ");
         els.autoNote.textContent = mp.state.holeIndex === holes.length - 1
           ? `${scores}  |  Scorecard coming up...`
           : `${scores}  |  Next hole starts automatically...`;
@@ -1941,11 +1939,6 @@
         player.ball.vy = vy;
         player.ball.sunk = false;
         player.strokes += 1;
-        if (player.strokes >= MAX_STROKES) {
-          completeMultiplayerPlayer(player, true);
-          chooseFarthestMultiplayerPlayer();
-          maybeFinishMultiplayerHole();
-        }
         applyMultiplayerState(mp.state);
         sendMultiplayerState(true);
       }
@@ -2200,9 +2193,6 @@
         updatePowerMeter();
         updateRollingSound();
         playWallSound(0.65);
-        if (game.strokes >= MAX_STROKES) {
-          finishHole({ penaltyLimit: true });
-        }
       }
 
       function updateBall(dt) {
@@ -2214,9 +2204,6 @@
           game.ball.vx = 0;
           game.ball.vy = 0;
           updateRollingSound();
-          if (game.strokes >= MAX_STROKES) {
-            finishHole({ penaltyLimit: true });
-          }
           return;
         }
 
@@ -2342,9 +2329,6 @@
         if (s < STOP_SPEED) {
           ball.vx = 0;
           ball.vy = 0;
-          if (player.strokes >= MAX_STROKES) {
-            completeMultiplayerPlayer(player, true);
-          }
           return;
         }
 
@@ -2377,7 +2361,6 @@
             ball.y = ball.lastSafe.y;
             ball.vx = 0;
             ball.vy = 0;
-            if (player.strokes >= MAX_STROKES) completeMultiplayerPlayer(player, true);
             return;
           }
           ball.lastSafe = { x: ball.x, y: ball.y };
