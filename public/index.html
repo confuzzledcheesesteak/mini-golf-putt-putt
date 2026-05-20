@@ -313,6 +313,19 @@
       letter-spacing: 3px;
     }
 
+    .name-input {
+      width: min(260px, 100%);
+      margin: 0 auto 4px;
+      display: block;
+      padding: 11px 13px;
+      border: 3px solid rgba(31, 140, 87, 0.22);
+      border-radius: 8px;
+      background: white;
+      color: var(--ink);
+      font: 900 18px/1 "Nunito", system-ui, sans-serif;
+      text-align: center;
+    }
+
     .room-code {
       width: fit-content;
       margin: 8px auto 10px;
@@ -665,6 +678,7 @@
           <div class="logo" aria-hidden="true">🏌️</div>
           <h1>Multiplayer</h1>
           <p class="subtitle">Create a room or join a friend with a 5-letter code.</p>
+          <input id="playerNameInput" class="name-input" maxlength="18" autocomplete="nickname" spellcheck="false" placeholder="Your name">
           <div class="menu-stack">
             <button id="hostButton" type="button">Host Game</button>
             <button id="joinButton" type="button">Join Game</button>
@@ -774,6 +788,7 @@
         hostButton: document.getElementById("hostButton"),
         joinButton: document.getElementById("joinButton"),
         mpBackButton: document.getElementById("mpBackButton"),
+        playerNameInput: document.getElementById("playerNameInput"),
         joinScreen: document.getElementById("joinScreen"),
         roomCodeInput: document.getElementById("roomCodeInput"),
         joinStatus: document.getElementById("joinStatus"),
@@ -964,6 +979,9 @@
       ];
 
       const BEST_ROUND_KEY = "miniGolfBestRoundV1";
+      const MP_NAME_KEY = "miniGolfPlayerNameV1";
+      const MP_SYNC_INTERVAL = 1 / 30;
+      const MP_HOLE_ADVANCE_DELAY = 3.4;
       const PLAYER_COLORS = ["#1f8c57", "#d94b4b", "#2f6fd6", "#9a55cf"];
       const DEFAULT_PLAYER_NAMES = ["Player 1", "Player 2", "Player 3", "Player 4"];
       let selectedPlayerCount = 1;
@@ -976,6 +994,7 @@
         selfId: "",
         players: [],
         state: null,
+        displayPlayers: [],
         lastSent: 0,
         lastStatus: ""
       };
@@ -995,6 +1014,30 @@
           localStorage.setItem(BEST_ROUND_KEY, JSON.stringify(round));
         } catch (err) {
           // localStorage can be blocked in private contexts; the game still works.
+        }
+      }
+
+      function cleanPlayerName(name, fallback = "Player") {
+        const cleaned = String(name || "").trim().replace(/\s+/g, " ").slice(0, 18);
+        return cleaned || fallback;
+      }
+
+      function multiplayerName() {
+        const name = cleanPlayerName(els.playerNameInput.value, "Player");
+        els.playerNameInput.value = name;
+        try {
+          localStorage.setItem(MP_NAME_KEY, name);
+        } catch (err) {
+          // Name saving is just a convenience; multiplayer still works without it.
+        }
+        return name;
+      }
+
+      function loadMultiplayerName() {
+        try {
+          els.playerNameInput.value = cleanPlayerName(localStorage.getItem(MP_NAME_KEY), "");
+        } catch (err) {
+          els.playerNameInput.value = "";
         }
       }
 
@@ -1075,6 +1118,7 @@
 
       function showMultiplayerMenu() {
         game.state = STATES.START;
+        loadMultiplayerName();
         showScreen(els.multiplayerMenu);
       }
 
@@ -1144,7 +1188,7 @@
         try {
           setStatus(els.lobbyStatus, "Creating room...");
           const socket = await ensureSocket();
-          socket.emit("room:create", { name: "Host" }, response => {
+          socket.emit("room:create", { name: multiplayerName() }, response => {
             if (!response?.ok) {
               setStatus(els.lobbyStatus, response?.message || "Could not create room.", true);
               return;
@@ -1176,7 +1220,7 @@
         try {
           setStatus(els.joinStatus, "Connecting...");
           const socket = await ensureSocket();
-          socket.emit("room:join", { code, name: `Player` }, response => {
+          socket.emit("room:join", { code, name: multiplayerName() }, response => {
             if (!response?.ok) {
               setStatus(els.joinStatus, response?.message || "Room not found.", true);
               return;
@@ -1538,6 +1582,26 @@
         return { x: tee.x, y: tee.y, vx: 0, vy: 0, rot: 0, sunk: false, lastSafe: { x: tee.x, y: tee.y } };
       }
 
+      function cloneBall(ball) {
+        return {
+          x: ball.x,
+          y: ball.y,
+          vx: ball.vx,
+          vy: ball.vy,
+          rot: ball.rot || 0,
+          sunk: Boolean(ball.sunk),
+          lastSafe: ball.lastSafe ? { x: ball.lastSafe.x, y: ball.lastSafe.y } : { x: ball.x, y: ball.y }
+        };
+      }
+
+      function cloneMultiplayerPlayer(player) {
+        return {
+          ...player,
+          scorecard: player.scorecard || [],
+          ball: cloneBall(player.ball)
+        };
+      }
+
       function getMultiplayerActivePlayer() {
         return mp.state?.players.find(player => player.id === mp.state.activeId) || null;
       }
@@ -1579,13 +1643,63 @@
           penaltyLimit: false,
           ball: createMpBall(hole, index, lobby.players.length)
         }));
-        mp.state = { phase: STATES.PLAYING, holeIndex: 0, activeId: players[0]?.id || "", players };
+        mp.state = { phase: STATES.PLAYING, holeIndex: 0, activeId: players[0]?.id || "", players, advanceAt: 0 };
+        mp.displayPlayers = players.map(cloneMultiplayerPlayer);
         chooseFarthestMultiplayerPlayer();
         return mp.state;
       }
 
+      function syncMultiplayerDisplay(state, snap = false) {
+        if (mp.isHost || !state?.players) {
+          mp.displayPlayers = state?.players?.map(cloneMultiplayerPlayer) || [];
+          return;
+        }
+        if (snap || mp.displayPlayers.length !== state.players.length) {
+          mp.displayPlayers = state.players.map(cloneMultiplayerPlayer);
+          return;
+        }
+        mp.displayPlayers = state.players.map(player => {
+          const existing = mp.displayPlayers.find(item => item.id === player.id);
+          if (!existing) return cloneMultiplayerPlayer(player);
+          return {
+            ...player,
+            scorecard: player.scorecard || [],
+            ball: existing.ball
+          };
+        });
+      }
+
+      function updateMultiplayerDisplay(dt) {
+        if (!mp.enabled || mp.isHost || !mp.state || !mp.displayPlayers.length) return;
+        const blend = 1 - Math.exp(-dt * 18);
+        mp.displayPlayers.forEach(displayPlayer => {
+          const source = mp.state.players.find(player => player.id === displayPlayer.id);
+          if (!source) return;
+          const ball = displayPlayer.ball;
+          const target = source.ball;
+          if (source.completed || target.sunk || mp.state.phase !== STATES.PLAYING) {
+            displayPlayer.ball = cloneBall(target);
+            return;
+          }
+          ball.x += (target.x - ball.x) * blend;
+          ball.y += (target.y - ball.y) * blend;
+          ball.rot += ((target.rot || 0) - (ball.rot || 0)) * blend;
+          ball.vx = target.vx;
+          ball.vy = target.vy;
+          ball.sunk = target.sunk;
+          ball.lastSafe = target.lastSafe;
+          if (Math.hypot(target.x - ball.x, target.y - ball.y) < 0.35) {
+            ball.x = target.x;
+            ball.y = target.y;
+          }
+        });
+      }
+
       function applyMultiplayerState(state) {
+        const previousHole = mp.state?.holeIndex;
+        const previousPhase = mp.state?.phase;
         mp.state = state;
+        syncMultiplayerDisplay(state, previousHole !== state.holeIndex || previousPhase !== state.phase);
         game.state = state.phase;
         game.holeIndex = state.holeIndex;
         const activeIndex = state.players.findIndex(player => player.id === state.activeId);
@@ -1618,6 +1732,7 @@
         mp.enabled = true;
         mp.players = lobby.players;
         mp.isHost = lobby.hostId === mp.selfId;
+        mp.displayPlayers = [];
         game.state = STATES.PLAYING;
         els.lobbyScreen.classList.add("hidden");
         els.hud.classList.add("visible");
@@ -1629,7 +1744,7 @@
 
       function sendMultiplayerState(force = false) {
         if (!mp.enabled || !mp.isHost || !mp.socket || !mp.state) return;
-        if (!force && game.time - mp.lastSent < 0.08) return;
+        if (!force && game.time - mp.lastSent < MP_SYNC_INTERVAL) return;
         mp.lastSent = game.time;
         mp.socket.emit("game:state", mp.state);
       }
@@ -1669,8 +1784,10 @@
       }
 
       function maybeFinishMultiplayerHole() {
+        if (mp.state.phase !== STATES.PLAYING) return;
         if (!mp.state.players.every(player => player.completed)) return;
         mp.state.phase = STATES.HOLE_COMPLETE;
+        mp.state.advanceAt = game.time + MP_HOLE_ADVANCE_DELAY;
         game.state = STATES.HOLE_COMPLETE;
         showMultiplayerHoleSummary();
         sendMultiplayerState(true);
@@ -1686,7 +1803,10 @@
         els.completeStrokes.textContent = rows.map(row => row.strokes).join(" / ");
         els.completePar.textContent = String(holes[mp.state.holeIndex].par);
         els.completeDelta.textContent = formatDelta(best - holes[mp.state.holeIndex].par);
-        els.autoNote.textContent = rows.map(row => `${row.player}: ${row.strokes}${row.penaltyLimit ? "*" : ""}`).join("  |  ");
+        const scores = rows.map(row => `${row.player}: ${row.strokes}${row.penaltyLimit ? "*" : ""}`).join("  |  ");
+        els.autoNote.textContent = mp.state.holeIndex === holes.length - 1
+          ? `${scores}  |  Scorecard coming up...`
+          : `${scores}  |  Next hole starts automatically...`;
         els.nextButton.textContent = mp.state.holeIndex === holes.length - 1 ? "Show Scorecard" : "Next Hole";
         els.nextButton.style.display = mp.isHost ? "" : "none";
         els.hud.classList.remove("visible");
@@ -1704,6 +1824,7 @@
         }
         mp.state.holeIndex += 1;
         mp.state.phase = STATES.PLAYING;
+        mp.state.advanceAt = 0;
         const hole = holes[mp.state.holeIndex];
         mp.state.players.forEach((player, index) => {
           player.strokes = 0;
@@ -2184,7 +2305,16 @@
       }
 
       function updateMultiplayer(dt) {
-        if (!mp.enabled || !mp.state || !mp.isHost || mp.state.phase !== STATES.PLAYING) return;
+        if (!mp.enabled || !mp.state) return;
+        if (!mp.isHost) {
+          updateMultiplayerDisplay(dt);
+          return;
+        }
+        if (mp.state.phase === STATES.HOLE_COMPLETE) {
+          if (mp.state.advanceAt && game.time >= mp.state.advanceAt) startNextMultiplayerHole();
+          return;
+        }
+        if (mp.state.phase !== STATES.PLAYING) return;
         const hole = holes[mp.state.holeIndex];
         if (hole.windmill) hole.windmill.angle += hole.windmill.speed * dt;
         mp.state.players.forEach(player => updateMultiplayerBall(player, dt));
@@ -2609,7 +2739,8 @@
 
       function drawMultiplayerBalls() {
         if (!mp.state) return;
-        mp.state.players.forEach(player => {
+        const players = mp.isHost ? mp.state.players : (mp.displayPlayers.length ? mp.displayPlayers : mp.state.players);
+        players.forEach(player => {
           drawOneBall(player.ball, player, player.id === mp.state.activeId);
         });
       }
@@ -2878,12 +3009,23 @@
       els.roomCodeInput.addEventListener("input", () => {
         els.roomCodeInput.value = els.roomCodeInput.value.replace(/[^a-zA-Z]/g, "").toUpperCase().slice(0, 5);
       });
+      els.playerNameInput.addEventListener("change", () => {
+        els.playerNameInput.value = cleanPlayerName(els.playerNameInput.value, "");
+        if (els.playerNameInput.value) {
+          try {
+            localStorage.setItem(MP_NAME_KEY, els.playerNameInput.value);
+          } catch (err) {
+            // Ignore storage failures.
+          }
+        }
+      });
       els.startButton.addEventListener("click", startGame);
       els.playerOptions.addEventListener("click", handlePlayerOptionsClick);
       els.nextButton.addEventListener("pointerup", handleNextHoleInput);
       els.nextButton.addEventListener("click", handleNextHoleInput);
       els.againButton.addEventListener("click", startGame);
 
+      loadMultiplayerName();
       updateBestRoundDisplay();
 
       let last = performance.now();

@@ -50,6 +50,11 @@ function emitLobby(room, message = "") {
   io.to(room.code).emit("lobby:update", lobbyPayload(room, message));
 }
 
+function cleanPlayerName(name, fallback) {
+  const cleaned = String(name || "").trim().replace(/\s+/g, " ").slice(0, 18);
+  return cleaned || fallback;
+}
+
 function removePlayer(socket) {
   const { roomCode } = socket.data;
   if (!roomCode || !rooms.has(roomCode)) return;
@@ -89,7 +94,7 @@ io.on("connection", socket => {
     const code = uniqueCode();
     const player = {
       id: socket.id,
-      name: String(name || "Host").slice(0, 18)
+      name: cleanPlayerName(name, "Host")
     };
     const room = {
       code,
@@ -125,7 +130,7 @@ io.on("connection", socket => {
     removePlayer(socket);
     const player = {
       id: socket.id,
-      name: String(name || `Player ${room.players.length + 1}`).slice(0, 18)
+      name: cleanPlayerName(name, `Player ${room.players.length + 1}`)
     };
     room.players.push(player);
     socket.data.roomCode = roomCode;
