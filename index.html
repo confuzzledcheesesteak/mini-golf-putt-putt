@@ -70,14 +70,14 @@
 
     .hud {
       position: absolute;
-      top: 12px;
-      left: 12px;
-      right: 12px;
+      top: clamp(12px, 1.5vw, 24px);
+      left: clamp(12px, 1.5vw, 24px);
+      right: clamp(12px, 1.5vw, 24px);
       z-index: 6;
       display: flex;
       align-items: flex-start;
       justify-content: space-between;
-      gap: 10px;
+      gap: clamp(10px, 1.3vw, 18px);
       pointer-events: none;
       opacity: 0;
       transform: translateY(-8px);
@@ -91,64 +91,64 @@
 
     .pill-row {
       display: flex;
-      gap: 8px;
+      gap: clamp(8px, 0.9vw, 14px);
       flex-wrap: wrap;
       align-items: center;
     }
 
     .pill {
-      min-width: 82px;
-      padding: 8px 10px;
-      border: 2px solid rgba(22, 51, 58, 0.12);
-      border-bottom-width: 4px;
+      min-width: clamp(82px, 8.6vw, 128px);
+      padding: clamp(8px, 0.9vw, 14px) clamp(10px, 1.15vw, 18px);
+      border: clamp(2px, 0.22vw, 3px) solid rgba(22, 51, 58, 0.12);
+      border-bottom-width: clamp(4px, 0.45vw, 6px);
       border-radius: 8px;
       background: rgba(255, 250, 240, 0.93);
-      box-shadow: 0 6px 14px rgba(22, 51, 58, 0.12);
+      box-shadow: 0 clamp(6px, 0.85vw, 12px) clamp(14px, 1.8vw, 26px) rgba(22, 51, 58, 0.12);
       line-height: 1;
     }
 
     .pill span {
       display: block;
-      font-size: 11px;
+      font-size: clamp(11px, 0.9vw, 15px);
       font-weight: 900;
       color: #51716f;
       text-transform: uppercase;
       letter-spacing: 0;
-      margin-bottom: 4px;
+      margin-bottom: clamp(4px, 0.45vw, 7px);
     }
 
     .pill strong {
       display: block;
-      font-size: 20px;
+      font-size: clamp(20px, 1.85vw, 31px);
       font-weight: 900;
       white-space: nowrap;
     }
 
     .hint {
-      max-width: 250px;
-      padding: 9px 11px;
+      max-width: clamp(250px, 26vw, 390px);
+      padding: clamp(9px, 0.95vw, 15px) clamp(11px, 1.15vw, 18px);
       border-radius: 8px;
       background: rgba(255, 250, 240, 0.92);
-      border: 2px solid rgba(22, 51, 58, 0.1);
-      font-size: 14px;
+      border: clamp(2px, 0.22vw, 3px) solid rgba(22, 51, 58, 0.1);
+      font-size: clamp(14px, 1.08vw, 19px);
       font-weight: 800;
       line-height: 1.18;
       text-align: right;
-      box-shadow: 0 6px 14px rgba(22, 51, 58, 0.1);
+      box-shadow: 0 clamp(6px, 0.85vw, 12px) clamp(14px, 1.8vw, 26px) rgba(22, 51, 58, 0.1);
     }
 
     .power-meter {
       position: absolute;
       z-index: 7;
-      top: 118px;
-      right: 14px;
-      width: 34px;
-      height: 210px;
+      top: clamp(118px, 10vw, 176px);
+      right: clamp(14px, 1.5vw, 24px);
+      width: clamp(34px, 3.3vw, 54px);
+      height: clamp(210px, 24vw, 340px);
       border-radius: 8px;
-      padding: 4px;
+      padding: clamp(4px, 0.42vw, 7px);
       background: rgba(255, 250, 240, 0.92);
-      border: 2px solid rgba(22, 51, 58, 0.16);
-      box-shadow: 0 12px 24px rgba(22, 51, 58, 0.18);
+      border: clamp(2px, 0.22vw, 3px) solid rgba(22, 51, 58, 0.16);
+      box-shadow: 0 clamp(12px, 1.5vw, 22px) clamp(24px, 3vw, 42px) rgba(22, 51, 58, 0.18);
       opacity: 0;
       transform: translateX(8px);
       transition: opacity 160ms ease, transform 160ms ease;
@@ -182,13 +182,13 @@
 
     .power-label {
       position: absolute;
-      top: -24px;
+      top: clamp(-34px, -2.15vw, -24px);
       left: 50%;
       transform: translateX(-50%);
-      padding: 3px 7px;
+      padding: clamp(3px, 0.35vw, 5px) clamp(7px, 0.8vw, 12px);
       border-radius: 8px;
       background: rgba(255, 250, 240, 0.92);
-      font-size: 12px;
+      font-size: clamp(12px, 0.95vw, 16px);
       font-weight: 900;
       white-space: nowrap;
       box-shadow: 0 5px 12px rgba(22, 51, 58, 0.13);
@@ -602,6 +602,10 @@
         padding: 7px 8px;
       }
 
+      .pill span {
+        font-size: 10px;
+      }
+
       .pill strong {
         font-size: 17px;
       }
@@ -613,6 +617,7 @@
       .power-meter {
         top: 96px;
         right: 8px;
+        width: 34px;
         height: 164px;
       }
 
