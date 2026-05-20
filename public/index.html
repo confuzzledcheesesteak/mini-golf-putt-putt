@@ -2784,54 +2784,61 @@
       function drawFairway(hole) {
         ctx.save();
         tracePoly(hole.fairway);
-        ctx.shadowColor = "rgba(0, 0, 0, 0.22)";
-        ctx.shadowBlur = 18;
-        ctx.shadowOffsetY = 10;
-        ctx.fillStyle = "#246b3e";
+        ctx.shadowColor = "rgba(0, 0, 0, 0.34)";
+        ctx.shadowBlur = 14;
+        ctx.shadowOffsetY = 8;
+        ctx.fillStyle = "#6f766f";
         ctx.fill();
+        ctx.restore();
+
+        ctx.save();
+        tracePoly(hole.fairway);
+        ctx.strokeStyle = "#706f63";
+        ctx.lineWidth = 28;
+        ctx.lineJoin = "round";
+        ctx.stroke();
+        ctx.strokeStyle = "#b8b4a4";
+        ctx.lineWidth = 19;
+        ctx.stroke();
+        ctx.strokeStyle = "#e0dccb";
+        ctx.lineWidth = 4;
+        ctx.stroke();
         ctx.restore();
 
         ctx.save();
         tracePoly(hole.fairway);
         const gradient = ctx.createLinearGradient(0, 80, 800, 560);
-        gradient.addColorStop(0, "#9af06a");
-        gradient.addColorStop(0.52, "#78dc58");
-        gradient.addColorStop(1, "#58c84c");
+        gradient.addColorStop(0, "#417b4a");
+        gradient.addColorStop(0.5, "#326b42");
+        gradient.addColorStop(1, "#25583a");
         ctx.fillStyle = gradient;
         ctx.fill();
         ctx.clip();
 
-        ctx.globalAlpha = 0.16;
-        for (let x = -120; x < W + 120; x += 54) {
-          ctx.fillStyle = (Math.floor((x + 120) / 54) % 2) ? "#e7ffd0" : "#319f49";
-          ctx.save();
-          ctx.translate(x, 0);
-          ctx.rotate(-0.13);
-          ctx.fillRect(0, -120, 28, H + 240);
-          ctx.restore();
-        }
-
-        ctx.globalAlpha = 0.18;
-        ctx.fillStyle = "#e8ffd8";
-        for (let y = -40; y < H + 40; y += 42) {
+        ctx.globalAlpha = 0.22;
+        for (let y = -30; y < H + 30; y += 7) {
+          ctx.strokeStyle = y % 14 === 0 ? "#173f2f" : "#5b8d5f";
+          ctx.lineWidth = 1;
           ctx.beginPath();
           ctx.moveTo(-20, y);
-          ctx.bezierCurveTo(210, y + 20, 438, y - 24, 820, y + 15);
-          ctx.lineTo(820, y + 35);
-          ctx.bezierCurveTo(438, y - 4, 210, y + 40, -20, y + 18);
-          ctx.closePath();
-          ctx.fill();
+          ctx.lineTo(W + 20, y + 12);
+          ctx.stroke();
+        }
+
+        ctx.globalAlpha = 0.12;
+        ctx.fillStyle = "#d8dec9";
+        for (let i = 0; i < 1200; i++) {
+          const x = seededNoise(i + game.holeIndex * 17) * W;
+          const y = seededNoise(i * 3 + 41) * H;
+          ctx.fillRect(x, y, 1.4, 1.4);
         }
         ctx.restore();
 
         ctx.save();
         tracePoly(hole.fairway);
-        ctx.strokeStyle = "#1f6a3d";
-        ctx.lineWidth = 10;
+        ctx.strokeStyle = "rgba(55, 49, 43, 0.36)";
+        ctx.lineWidth = 2;
         ctx.lineJoin = "round";
-        ctx.stroke();
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.34)";
-        ctx.lineWidth = 3;
         ctx.stroke();
         ctx.restore();
       }
@@ -2867,16 +2874,16 @@
         ctx.fill();
         ctx.restore();
 
-        drawEllipseShape(bunker, "#f1d37e", "#c9963d");
+        drawEllipseShape(bunker, "#cdbb8e", "#8e7d5b");
         ctx.save();
         ctx.translate(bunker.x, bunker.y);
         ctx.rotate(bunker.rot || 0);
-        ctx.strokeStyle = "rgba(123, 86, 30, 0.28)";
+        ctx.strokeStyle = "rgba(75, 63, 45, 0.34)";
         ctx.lineWidth = 7;
         ctx.beginPath();
         ctx.ellipse(0, 0, bunker.rx, bunker.ry, 0, 0, Math.PI * 2);
         ctx.stroke();
-        ctx.strokeStyle = "rgba(255, 249, 224, 0.58)";
+        ctx.strokeStyle = "rgba(237, 226, 196, 0.52)";
         ctx.lineWidth = 2;
         for (let y = -bunker.ry * 0.45; y <= bunker.ry * 0.5; y += 9) {
           ctx.beginPath();
@@ -2888,7 +2895,7 @@
         ctx.save();
         ctx.translate(bunker.x, bunker.y);
         ctx.rotate(bunker.rot || 0);
-        ctx.fillStyle = "rgba(132, 91, 36, 0.18)";
+        ctx.fillStyle = "rgba(74, 61, 42, 0.2)";
         for (let i = 0; i < 34; i++) {
           const a = seededNoise(index * 101 + i) * Math.PI * 2;
           const r = Math.sqrt(seededNoise(index * 211 + i)) * 0.88;
@@ -2911,11 +2918,11 @@
           ctx.ellipse(3, 6, water.rx + 2, water.ry + 2, 0, 0, Math.PI * 2);
           ctx.fill();
           ctx.restore();
-          drawEllipseShape(water, "#4cc2ff", "#1f83c4");
+          drawEllipseShape(water, "#2d6f83", "#164d62");
           ctx.save();
           ctx.translate(water.x, water.y);
           ctx.rotate(water.rot || 0);
-          ctx.strokeStyle = "rgba(255, 255, 255, 0.42)";
+          ctx.strokeStyle = "rgba(208, 232, 232, 0.34)";
           ctx.lineWidth = 2;
           for (let y = -water.ry * 0.55; y <= water.ry * 0.6; y += 16) {
             ctx.beginPath();
@@ -2926,11 +2933,11 @@
           ctx.restore();
         } else if (water.type === "poly") {
           drawPoly(water.points.map(([x, y]) => [x + 3, y + 6]), "rgba(0, 0, 0, 0.13)", null, 0);
-          drawPoly(water.points, "#4cc2ff", "#1f83c4", 4);
+          drawPoly(water.points, "#2d6f83", "#164d62", 4);
           ctx.save();
           tracePoly(water.points);
           ctx.clip();
-          ctx.strokeStyle = "rgba(255, 255, 255, 0.42)";
+          ctx.strokeStyle = "rgba(208, 232, 232, 0.34)";
           ctx.lineWidth = 2;
           for (let y = 0; y < H; y += 18) {
             ctx.beginPath();
@@ -2947,20 +2954,32 @@
       function drawTee(hole) {
         ctx.save();
         ctx.translate(hole.tee.x, hole.tee.y);
-        ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
-        ctx.beginPath();
-        ctx.arc(0, 0, 25, 0, Math.PI * 2);
+        ctx.rotate(-0.06);
+        ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
+        roundRect(-35, -22 + 5, 70, 44, 7);
         ctx.fill();
-        ctx.strokeStyle = "#fff7d8";
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.arc(0, 0, 18, 0, Math.PI * 2);
+        const mat = ctx.createLinearGradient(0, -22, 0, 22);
+        mat.addColorStop(0, "#2c6e4b");
+        mat.addColorStop(1, "#194a36");
+        ctx.fillStyle = mat;
+        roundRect(-35, -22, 70, 44, 7);
+        ctx.fill();
+        ctx.strokeStyle = "#b8b4a4";
+        ctx.lineWidth = 3;
         ctx.stroke();
-        ctx.fillStyle = "#fff7d8";
-        ctx.font = "900 13px Nunito, sans-serif";
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.18)";
+        ctx.lineWidth = 1;
+        for (let y = -14; y <= 14; y += 7) {
+          ctx.beginPath();
+          ctx.moveTo(-25, y);
+          ctx.lineTo(25, y + 2);
+          ctx.stroke();
+        }
+        ctx.fillStyle = "#e5dfc8";
+        ctx.font = "900 12px Nunito, sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText("TEE", 0, 1);
+        ctx.fillText("TEE", 0, 0);
         ctx.restore();
       }
 
@@ -2971,18 +2990,22 @@
         ctx.beginPath();
         ctx.ellipse(x + 3, y + 5, CUP_R * 1.05, CUP_R * 0.6, 0, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = "#27333a";
+        const cupGradient = ctx.createRadialGradient(x - 4, y - 5, 2, x, y, CUP_R);
+        cupGradient.addColorStop(0, "#11191a");
+        cupGradient.addColorStop(0.7, "#050808");
+        cupGradient.addColorStop(1, "#7f887f");
+        ctx.fillStyle = cupGradient;
         ctx.beginPath();
         ctx.arc(x, y, CUP_R, 0, Math.PI * 2);
         ctx.fill();
-        ctx.strokeStyle = "#fff7d8";
+        ctx.strokeStyle = "#c8c4b5";
         ctx.lineWidth = 3;
         ctx.stroke();
 
         const poleX = x + 8;
         const poleTop = y - 48;
-        ctx.strokeStyle = "#fff7d8";
-        ctx.lineWidth = 4;
+        ctx.strokeStyle = "#d8d8d0";
+        ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.moveTo(poleX, y - 2);
         ctx.lineTo(poleX, poleTop);
@@ -2994,9 +3017,9 @@
         ctx.quadraticCurveTo(poleX + 30, poleTop - 8 + wave, poleX + 58, poleTop + 6);
         ctx.quadraticCurveTo(poleX + 31, poleTop + 22 - wave, poleX + 1, poleTop + 16);
         ctx.closePath();
-        ctx.fillStyle = "#ff4d6d";
+        ctx.fillStyle = "#b91e2f";
         ctx.fill();
-        ctx.strokeStyle = "#c9184a";
+        ctx.strokeStyle = "#771421";
         ctx.lineWidth = 2;
         ctx.stroke();
         ctx.restore();
@@ -3013,14 +3036,14 @@
           ctx.moveTo(wall.x1 + 3, wall.y1 + 5);
           ctx.lineTo(wall.x2 + 3, wall.y2 + 5);
           ctx.stroke();
-          ctx.strokeStyle = wall.color || "#216d57";
+          ctx.strokeStyle = "#806f56";
           ctx.lineWidth = wall.width || 12;
           ctx.beginPath();
           ctx.moveTo(wall.x1, wall.y1);
           ctx.lineTo(wall.x2, wall.y2);
           ctx.stroke();
-          ctx.strokeStyle = "rgba(255, 255, 255, 0.17)";
-          ctx.lineWidth = Math.max(2, (wall.width || 12) * 0.25);
+          ctx.strokeStyle = "#c5b799";
+          ctx.lineWidth = Math.max(2, (wall.width || 12) * 0.22);
           ctx.stroke();
         });
         ctx.restore();
@@ -3032,15 +3055,15 @@
             ctx.fillStyle = "rgba(0, 0, 0, 0.17)";
             roundRect(block.x + 3, block.y + 6, block.w, block.h, 6);
             ctx.fill();
-            ctx.fillStyle = block.color || "#2b714e";
+            ctx.fillStyle = "#756a58";
             roundRect(block.x, block.y, block.w, block.h, 6);
             ctx.fill();
-            ctx.strokeStyle = "rgba(255,255,255,0.18)";
+            ctx.strokeStyle = "#bdb39d";
             ctx.lineWidth = 2;
             ctx.stroke();
           } else if (block.type === "poly") {
             drawPoly(block.points.map(([x, y]) => [x + 3, y + 6]), "rgba(0, 0, 0, 0.17)", null, 0);
-            drawPoly(block.points, block.color || "#2b714e", "rgba(255,255,255,0.18)", 2);
+            drawPoly(block.points, "#756a58", "#bdb39d", 2);
           }
         });
       }
@@ -3074,14 +3097,14 @@
             bumper.y,
             bumper.r
           );
-          gradient.addColorStop(0, "#ffffff");
-          gradient.addColorStop(0.18, bumper.color || "#ff7a7a");
-          gradient.addColorStop(1, "#d64256");
+          gradient.addColorStop(0, "#d8d2c2");
+          gradient.addColorStop(0.22, "#8f8778");
+          gradient.addColorStop(1, "#514b43");
           ctx.fillStyle = gradient;
           ctx.beginPath();
           ctx.arc(bumper.x, bumper.y, bumper.r, 0, Math.PI * 2);
           ctx.fill();
-          ctx.strokeStyle = "rgba(22, 51, 58, 0.24)";
+          ctx.strokeStyle = "#332f2a";
           ctx.lineWidth = 4;
           ctx.stroke();
         });
@@ -3092,8 +3115,8 @@
         const w = hole.windmill;
         ctx.save();
         ctx.translate(w.x, w.y);
-        ctx.fillStyle = "#f3cf7b";
-        ctx.strokeStyle = "#996f3b";
+        ctx.fillStyle = "#9b886b";
+        ctx.strokeStyle = "#4f473b";
         ctx.lineWidth = 4;
         ctx.beginPath();
         ctx.arc(0, 0, 30, 0, Math.PI * 2);
@@ -3103,19 +3126,19 @@
         ctx.rotate(w.angle);
         for (let i = 0; i < 4; i++) {
           ctx.rotate(Math.PI / 2);
-          ctx.fillStyle = "#fff7d8";
-          ctx.strokeStyle = "#b06c2b";
+          ctx.fillStyle = "#d7cfbd";
+          ctx.strokeStyle = "#5c5143";
           ctx.lineWidth = 3;
           roundRect(0, -w.width / 2, w.len, w.width, 5);
           ctx.fill();
           ctx.stroke();
-          ctx.fillStyle = "#ffcf3d";
+          ctx.fillStyle = "#8f322b";
           roundRect(w.len - 16, -w.width / 2 - 5, 22, w.width + 10, 5);
           ctx.fill();
         }
 
         ctx.rotate(-w.angle);
-        ctx.fillStyle = "#d94b4b";
+        ctx.fillStyle = "#3d3731";
         ctx.beginPath();
         ctx.arc(0, 0, 9, 0, Math.PI * 2);
         ctx.fill();
@@ -3321,32 +3344,38 @@
         const hole = game.state === STATES.BUILDER ? builder.hole : (currentHole() || holes[0]);
         ctx.clearRect(0, 0, W, H);
 
-        ctx.fillStyle = "#1f4d3b";
+        ctx.fillStyle = "#2a2d2a";
         ctx.fillRect(0, 0, W, H);
 
         ctx.save();
         const roughGradient = ctx.createLinearGradient(0, 0, W, H);
-        roughGradient.addColorStop(0, "#255f46");
-        roughGradient.addColorStop(0.55, "#1f503c");
-        roughGradient.addColorStop(1, "#173b31");
+        roughGradient.addColorStop(0, "#3d403b");
+        roughGradient.addColorStop(0.55, "#2b302c");
+        roughGradient.addColorStop(1, "#202420");
         ctx.fillStyle = roughGradient;
         ctx.fillRect(0, 0, W, H);
         ctx.restore();
 
         ctx.save();
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.055)";
-        ctx.lineWidth = 2;
-        for (let x = -H; x < W; x += 34) {
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.035)";
+        ctx.lineWidth = 1;
+        for (let x = -H; x < W; x += 22) {
           ctx.beginPath();
           ctx.moveTo(x, 0);
           ctx.lineTo(x + H, H);
           ctx.stroke();
         }
-        ctx.strokeStyle = "rgba(0, 0, 0, 0.045)";
-        for (let x = -H; x < W; x += 34) {
+        ctx.fillStyle = "rgba(0, 0, 0, 0.06)";
+        for (let i = 0; i < 900; i++) {
+          const x = seededNoise(i * 7 + 3) * W;
+          const y = seededNoise(i * 11 + 9) * H;
+          ctx.fillRect(x, y, 1, 1);
+        }
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.05)";
+        for (let x = -H; x < W; x += 44) {
           ctx.beginPath();
-          ctx.moveTo(x + 17, 0);
-          ctx.lineTo(x + H + 17, H);
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x + H, H);
           ctx.stroke();
         }
         ctx.restore();
