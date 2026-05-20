@@ -2830,7 +2830,8 @@
 
       function onPointerMove(evt) {
         const p = getMousePoint(evt);
-        game.mouse = { ...p, inside: p.x >= 0 && p.x <= W && p.y >= 0 && p.y <= H };
+        const insideCanvas = p.x >= 0 && p.x <= W && p.y >= 0 && p.y <= H;
+        game.mouse = { ...p, inside: insideCanvas || game.dragging };
         if (game.dragging) {
           const dx = game.ball.x - game.mouse.x;
           const dy = game.ball.y - game.mouse.y;
@@ -2846,6 +2847,7 @@
         const p = getMousePoint(evt);
         game.mouse = { ...p, inside: true };
         game.dragging = true;
+        canvas.setPointerCapture?.(evt.pointerId);
         const dx = game.ball.x - p.x;
         const dy = game.ball.y - p.y;
         game.dragPower = clamp(Math.hypot(dx, dy) / MAX_DRAG, 0, 1);
@@ -2863,6 +2865,7 @@
         const power = clamp(aim.len / MAX_DRAG, 0, 1);
         game.dragging = false;
         game.dragPower = 0;
+        canvas.releasePointerCapture?.(evt.pointerId);
         updatePowerMeter();
 
         if (power < 0.05) return;
@@ -2991,9 +2994,12 @@
 
       canvas.addEventListener("pointermove", onPointerMove);
       canvas.addEventListener("pointerleave", () => {
-        game.mouse.inside = false;
+        if (!game.dragging) game.mouse.inside = false;
       });
       canvas.addEventListener("pointerdown", onPointerDown);
+      window.addEventListener("pointermove", evt => {
+        if (game.dragging) onPointerMove(evt);
+      });
       window.addEventListener("pointerup", onPointerUp);
       window.addEventListener("keydown", handleKeyDown);
       els.localModeButton.addEventListener("click", showLocalMenu);
