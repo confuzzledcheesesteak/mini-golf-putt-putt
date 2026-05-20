@@ -1,0 +1,7 @@
+node_modules/
+.netlify/
+*.log
+server-3000.*.log
+.env
+.DS_Store
+Thumbs.db

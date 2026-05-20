@@ -1,0 +1,21 @@
+{
+  "name": "build-a-casual-single-player-mini-2",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node -c server.js && node -e \"const fs=require('fs'); const html=fs.readFileSync('index.html','utf8'); const m=html.match(/<script>([\\s\\S]*)<\\/script>/); if(!m) throw new Error('No script block found'); new Function(m[1]); console.log('ok');\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "netlify-cli": "^26.0.2",
+    "socket.io-client": "^4.8.3"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "socket.io": "^4.8.3"
+  }
+}
