@@ -988,6 +988,7 @@
 
       const BEST_ROUND_KEY = "miniGolfBestRoundV1";
       const MP_NAME_KEY = "miniGolfPlayerNameV1";
+      const MP_CLIENT_KEY = "miniGolfClientIdV1";
       const MP_SYNC_INTERVAL = 1 / 30;
       const MP_HOLE_ADVANCE_DELAY = 3.4;
       const PLAYER_COLORS = ["#1f8c57", "#d94b4b", "#2f6fd6", "#9a55cf"];
@@ -1000,6 +1001,8 @@
         isHost: false,
         roomCode: "",
         selfId: "",
+        socketId: "",
+        clientId: "",
         players: [],
         state: null,
         displayPlayers: [],
@@ -1047,6 +1050,27 @@
           els.playerNameInput.value = cleanPlayerName(localStorage.getItem(MP_NAME_KEY), "");
         } catch (err) {
           els.playerNameInput.value = "";
+        }
+      }
+
+      function getMultiplayerClientId() {
+        if (mp.clientId) return mp.clientId;
+        try {
+          const saved = sessionStorage.getItem(MP_CLIENT_KEY);
+          if (saved) {
+            mp.clientId = saved;
+            mp.selfId = saved;
+            return saved;
+          }
+          const generated = `p_${Math.random().toString(36).slice(2)}_${Date.now().toString(36)}`;
+          sessionStorage.setItem(MP_CLIENT_KEY, generated);
+          mp.clientId = generated;
+          mp.selfId = generated;
+          return generated;
+        } catch (err) {
+          if (!mp.clientId) mp.clientId = `p_${Math.random().toString(36).slice(2)}_${Date.now().toString(36)}`;
+          mp.selfId = mp.clientId;
+          return mp.clientId;
         }
       }
 
@@ -1127,6 +1151,7 @@
 
       function showMultiplayerMenu() {
         game.state = STATES.START;
+        getMultiplayerClientId();
         loadMultiplayerName();
         showScreen(els.multiplayerMenu);
       }
@@ -1166,12 +1191,34 @@
 
       async function ensureSocket() {
         await loadSocketIo();
+        getMultiplayerClientId();
         if (mp.socket?.connected) return mp.socket;
         mp.socket = window.io();
         mp.socket.on("connect", () => {
-          mp.selfId = mp.socket.id;
+          mp.socketId = mp.socket.id;
+          mp.selfId = getMultiplayerClientId();
+          if (mp.enabled && mp.roomCode) {
+            mp.socket.emit("room:rejoin", { code: mp.roomCode, clientId: mp.selfId }, response => {
+              if (response?.ok) {
+                mp.players = response.lobby.players;
+                mp.isHost = response.lobby.hostId === mp.selfId;
+                if (game.state !== STATES.PLAYING && game.state !== STATES.HOLE_COMPLETE && game.state !== STATES.GAME_OVER) {
+                  renderLobby(response.lobby, "Reconnected.");
+                }
+              } else if (game.state === STATES.PLAYING) {
+                els.hudHint.textContent = response?.message || "Reconnected, but the room was not found.";
+              }
+            });
+          }
         });
-        mp.socket.on("lobby:update", lobby => renderLobby(lobby));
+        mp.socket.on("lobby:update", lobby => {
+          if (mp.enabled && [STATES.PLAYING, STATES.HOLE_COMPLETE, STATES.GAME_OVER].includes(game.state)) {
+            mp.players = lobby.players;
+            mp.isHost = lobby.hostId === mp.selfId;
+            return;
+          }
+          renderLobby(lobby);
+        });
         mp.socket.on("room:status", status => setStatus(els.lobbyStatus, status.message || "Connected."));
         mp.socket.on("game:start", lobby => startMultiplayerClient(lobby));
         mp.socket.on("game:state", state => {
@@ -1197,13 +1244,14 @@
         try {
           setStatus(els.lobbyStatus, "Creating room...");
           const socket = await ensureSocket();
-          socket.emit("room:create", { name: multiplayerName() }, response => {
+          socket.emit("room:create", { name: multiplayerName(), clientId: getMultiplayerClientId() }, response => {
             if (!response?.ok) {
               setStatus(els.lobbyStatus, response?.message || "Could not create room.", true);
               return;
             }
             mp.enabled = true;
-            mp.selfId = socket.id;
+            mp.socketId = socket.id;
+            mp.selfId = getMultiplayerClientId();
             renderLobby(response.lobby, "Waiting for players...");
           });
         } catch (err) {
@@ -1229,13 +1277,14 @@
         try {
           setStatus(els.joinStatus, "Connecting...");
           const socket = await ensureSocket();
-          socket.emit("room:join", { code, name: multiplayerName() }, response => {
+          socket.emit("room:join", { code, name: multiplayerName(), clientId: getMultiplayerClientId() }, response => {
             if (!response?.ok) {
               setStatus(els.joinStatus, response?.message || "Room not found. Make sure both players are using the same link.", true);
               return;
             }
             mp.enabled = true;
-            mp.selfId = socket.id;
+            mp.socketId = socket.id;
+            mp.selfId = getMultiplayerClientId();
             renderLobby(response.lobby, "Connected.");
           });
         } catch (err) {

@@ -55,24 +55,49 @@ function cleanPlayerName(name, fallback) {
   return cleaned || fallback;
 }
 
+function cleanPlayerId(clientId, fallback) {
+  const cleaned = String(clientId || "").trim().replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 40);
+  return cleaned || fallback;
+}
+
+function attachPlayerSocket(socket, room, player) {
+  player.socketId = socket.id;
+  player.disconnected = false;
+  socket.data.roomCode = room.code;
+  socket.data.playerId = player.id;
+  socket.join(room.code);
+}
+
 function removePlayer(socket) {
   const { roomCode } = socket.data;
   if (!roomCode || !rooms.has(roomCode)) return;
 
   const room = rooms.get(roomCode);
-  const leavingWasHost = room.hostId === socket.id;
-  room.players = room.players.filter(player => player.id !== socket.id);
+  const playerId = socket.data.playerId || socket.id;
+  const player = room.players.find(item => item.id === playerId || item.socketId === socket.id);
+  const leavingWasHost = room.hostId === playerId;
   socket.leave(roomCode);
 
-  if (room.players.length === 0) {
-    rooms.delete(roomCode);
+  if (room.started && player) {
+    player.disconnected = true;
+    player.socketId = "";
+    if (leavingWasHost) {
+      io.to(room.code).emit("game:closed", {
+        message: "Host disconnected. The room was closed."
+      });
+      rooms.delete(roomCode);
+      return;
+    }
+    io.to(room.code).emit("room:status", {
+      type: "player-disconnected",
+      message: `${player.name} disconnected. They can rejoin with the same code.`
+    });
     return;
   }
 
-  if (leavingWasHost && room.started) {
-    io.to(room.code).emit("game:closed", {
-      message: "Host disconnected. The room was closed."
-    });
+  room.players = room.players.filter(item => item.id !== playerId && item.socketId !== socket.id);
+
+  if (room.players.length === 0) {
     rooms.delete(roomCode);
     return;
   }
@@ -89,28 +114,28 @@ function removePlayer(socket) {
 }
 
 io.on("connection", socket => {
-  socket.on("room:create", ({ name } = {}, reply) => {
+  socket.on("room:create", ({ name, clientId } = {}, reply) => {
     removePlayer(socket);
     const code = uniqueCode();
     const player = {
-      id: socket.id,
+      id: cleanPlayerId(clientId, socket.id),
+      socketId: socket.id,
       name: cleanPlayerName(name, "Host")
     };
     const room = {
       code,
-      hostId: socket.id,
+      hostId: player.id,
       started: false,
       players: [player]
     };
 
     rooms.set(code, room);
-    socket.data.roomCode = code;
-    socket.join(code);
+    attachPlayerSocket(socket, room, player);
     reply?.({ ok: true, lobby: lobbyPayload(room, "Waiting for players...") });
     emitLobby(room, "Waiting for players...");
   });
 
-  socket.on("room:join", ({ code, name } = {}, reply) => {
+  socket.on("room:join", ({ code, name, clientId } = {}, reply) => {
     const roomCode = String(code || "").trim().toUpperCase();
     if (!/^[A-Z]{5}$/.test(roomCode)) {
       reply?.({ ok: false, message: "Enter exactly five letters." });
@@ -128,15 +153,41 @@ io.on("connection", socket => {
     }
 
     removePlayer(socket);
+    const playerId = cleanPlayerId(clientId, socket.id);
+    const existingPlayer = room.players.find(player => player.id === playerId);
+    if (existingPlayer) {
+      attachPlayerSocket(socket, room, existingPlayer);
+      reply?.({ ok: true, lobby: lobbyPayload(room, "Reconnected.") });
+      emitLobby(room, `${existingPlayer.name} reconnected.`);
+      return;
+    }
     const player = {
-      id: socket.id,
+      id: playerId,
+      socketId: socket.id,
       name: cleanPlayerName(name, `Player ${room.players.length + 1}`)
     };
     room.players.push(player);
-    socket.data.roomCode = roomCode;
-    socket.join(roomCode);
+    attachPlayerSocket(socket, room, player);
     reply?.({ ok: true, lobby: lobbyPayload(room, "Connected.") });
     emitLobby(room, `${player.name} joined.`);
+  });
+
+  socket.on("room:rejoin", ({ code, clientId } = {}, reply) => {
+    const roomCode = String(code || "").trim().toUpperCase();
+    const playerId = cleanPlayerId(clientId, "");
+    const room = rooms.get(roomCode);
+    if (!room || !playerId) {
+      reply?.({ ok: false, message: "Could not reconnect to the room." });
+      return;
+    }
+    const player = room.players.find(item => item.id === playerId);
+    if (!player) {
+      reply?.({ ok: false, message: "Could not reconnect to the room." });
+      return;
+    }
+    attachPlayerSocket(socket, room, player);
+    reply?.({ ok: true, lobby: lobbyPayload(room, "Reconnected.") });
+    emitLobby(room, `${player.name} reconnected.`);
   });
 
   socket.on("room:start", (payload, reply) => {
@@ -145,7 +196,7 @@ io.on("connection", socket => {
       reply?.({ ok: false, message: "Room not found." });
       return;
     }
-    if (room.hostId !== socket.id) {
+    if (room.hostId !== socket.data.playerId) {
       reply?.({ ok: false, message: "Only the host can start the match." });
       return;
     }
@@ -158,14 +209,16 @@ io.on("connection", socket => {
   // Non-host players send shot requests, which the server relays only to the host.
   socket.on("game:state", state => {
     const room = rooms.get(socket.data.roomCode);
-    if (!room || room.hostId !== socket.id) return;
+    if (!room || room.hostId !== socket.data.playerId) return;
     socket.to(room.code).emit("game:state", state);
   });
 
   socket.on("game:shot", shot => {
     const room = rooms.get(socket.data.roomCode);
     if (!room || !room.started) return;
-    io.to(room.hostId).emit("game:shot", { ...shot, playerId: socket.id });
+    const host = room.players.find(player => player.id === room.hostId);
+    if (!host?.socketId) return;
+    io.to(host.socketId).emit("game:shot", { ...shot, playerId: socket.data.playerId });
   });
 
   socket.on("disconnect", () => {
