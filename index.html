@@ -1223,7 +1223,7 @@
           const socket = await ensureSocket();
           socket.emit("room:join", { code, name: multiplayerName() }, response => {
             if (!response?.ok) {
-              setStatus(els.joinStatus, response?.message || "Room not found.", true);
+              setStatus(els.joinStatus, response?.message || "Room not found. Make sure both players are using the same link.", true);
               return;
             }
             mp.enabled = true;

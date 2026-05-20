@@ -119,7 +119,7 @@ io.on("connection", socket => {
 
     const room = rooms.get(roomCode);
     if (!room) {
-      reply?.({ ok: false, message: "Room not found." });
+      reply?.({ ok: false, message: "Room not found. Make sure both players are using the same link and the host is still in the lobby." });
       return;
     }
     if (room.started) {
