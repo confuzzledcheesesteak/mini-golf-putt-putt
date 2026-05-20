@@ -995,6 +995,7 @@
         players: [],
         state: null,
         displayPlayers: [],
+        seenCelebrations: new Set(),
         lastSent: 0,
         lastStatus: ""
       };
@@ -1643,10 +1644,36 @@
           penaltyLimit: false,
           ball: createMpBall(hole, index, lobby.players.length)
         }));
-        mp.state = { phase: STATES.PLAYING, holeIndex: 0, activeId: players[0]?.id || "", players, advanceAt: 0 };
+        mp.state = { phase: STATES.PLAYING, holeIndex: 0, activeId: players[0]?.id || "", players, advanceAt: 0, celebrations: [] };
+        mp.seenCelebrations = new Set();
         mp.displayPlayers = players.map(cloneMultiplayerPlayer);
         chooseFarthestMultiplayerPlayer();
         return mp.state;
+      }
+
+      function addMultiplayerCelebration(player, x, y) {
+        if (!mp.state) return;
+        const id = `${mp.state.holeIndex}-${player.id}-${player.scorecard.length}-${Date.now()}`;
+        mp.state.celebrations = (mp.state.celebrations || []).concat({
+          id,
+          holeIndex: mp.state.holeIndex,
+          playerId: player.id,
+          x,
+          y
+        }).slice(-12);
+        mp.seenCelebrations.add(id);
+        burstConfetti(x, y);
+        playChime();
+      }
+
+      function playSyncedCelebrations(state) {
+        (state.celebrations || []).forEach(event => {
+          if (mp.seenCelebrations.has(event.id)) return;
+          mp.seenCelebrations.add(event.id);
+          if (event.holeIndex !== state.holeIndex) return;
+          burstConfetti(event.x, event.y);
+          playChime();
+        });
       }
 
       function syncMultiplayerDisplay(state, snap = false) {
@@ -1699,6 +1726,7 @@
         const previousHole = mp.state?.holeIndex;
         const previousPhase = mp.state?.phase;
         mp.state = state;
+        playSyncedCelebrations(state);
         syncMultiplayerDisplay(state, previousHole !== state.holeIndex || previousPhase !== state.phase);
         game.state = state.phase;
         game.holeIndex = state.holeIndex;
@@ -2282,7 +2310,7 @@
           if (cupDistance < CUP_R && speed(ball) < SINK_SPEED) {
             ball.x = hole.cup.x;
             ball.y = hole.cup.y;
-            burstConfetti(hole.cup.x, hole.cup.y);
+            addMultiplayerCelebration(player, hole.cup.x, hole.cup.y);
             completeMultiplayerPlayer(player, false);
             return;
           }
@@ -2649,6 +2677,7 @@
 
       function drawAimLine() {
         if (game.state !== STATES.PLAYING || !ballStopped()) return;
+        if (mp.enabled && getMultiplayerActivePlayer()?.id !== mp.selfId) return;
         const ball = game.ball;
 
         if (!game.dragging) {
