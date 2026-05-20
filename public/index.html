@@ -466,6 +466,10 @@
       margin: -8px auto 18px;
     }
 
+    .course-picker {
+      margin-top: 12px;
+    }
+
     .player-picker span {
       color: #55716b;
       font-size: 12px;
@@ -495,6 +499,12 @@
       background: linear-gradient(180deg, #ffe66d, #ffc53d);
       border-color: rgba(220, 140, 24, 0.34);
       box-shadow: 0 5px 0 var(--accent-dark), 0 10px 18px rgba(22, 51, 58, 0.16);
+    }
+
+    .course-picker .player-option {
+      width: auto;
+      min-width: 66px;
+      padding: 0 12px;
     }
 
     .record-banner {
@@ -791,6 +801,14 @@
               <button class="player-option" type="button" data-players="4">4</button>
             </div>
           </div>
+          <div class="player-picker course-picker" aria-label="Choose course">
+            <span>Course</span>
+            <div id="courseOptions" class="player-options">
+              <button class="player-option active" type="button" data-course="easy">Easy</button>
+              <button class="player-option" type="button" data-course="medium">Med</button>
+              <button class="player-option" type="button" data-course="hard">Hard</button>
+            </div>
+          </div>
           <p id="bestRound" class="best-line" aria-live="polite"></p>
           <button id="startButton" type="button">Start Game</button>
           <button id="localBackButton" class="secondary-button" type="button">Back</button>
@@ -924,6 +942,7 @@
         startButton: document.getElementById("startButton"),
         localBackButton: document.getElementById("localBackButton"),
         playerOptions: document.getElementById("playerOptions"),
+        courseOptions: document.getElementById("courseOptions"),
         multiplayerMenu: document.getElementById("multiplayerMenu"),
         hostButton: document.getElementById("hostButton"),
         joinButton: document.getElementById("joinButton"),
@@ -957,7 +976,7 @@
         recordBanner: document.getElementById("recordBanner")
       };
 
-      const holes = [
+      const easyHoles = [
         {
           name: "Sunny Straightaway",
           par: 2,
@@ -1072,10 +1091,10 @@
           par: 3,
           tee: { x: 105, y: 300 },
           cup: { x: 695, y: 300 },
-          fairway: [[56, 188], [744, 188], [744, 412], [56, 412]],
+          fairway: [[56, 198], [744, 198], [744, 402], [56, 402]],
           bunkers: [
-            { x: 250, y: 372, rx: 80, ry: 24, rot: 0.15 },
-            { x: 555, y: 228, rx: 72, ry: 22, rot: -0.22 }
+            { x: 250, y: 360, rx: 72, ry: 20, rot: 0.15 },
+            { x: 560, y: 240, rx: 62, ry: 18, rot: -0.22 }
           ],
           waters: [
             { type: "ellipse", x: 402, y: 101, rx: 108, ry: 36, rot: 0 },
@@ -1084,10 +1103,10 @@
           bumpers: [],
           walls: [],
           blocks: [
-            { type: "rect", x: 360, y: 188, w: 16, h: 77, color: "#25715a" },
-            { type: "rect", x: 424, y: 335, w: 16, h: 77, color: "#25715a" }
+            { type: "rect", x: 360, y: 198, w: 16, h: 52, color: "#25715a" },
+            { type: "rect", x: 424, y: 350, w: 16, h: 52, color: "#25715a" }
           ],
-          windmill: { x: 400, y: 300, len: 90, width: 13, speed: 1.9, angle: 0 }
+          windmill: { x: 400, y: 300, len: 58, width: 10, speed: 1.15, angle: 0 }
         },
         {
           name: "Final Maze",
@@ -1118,6 +1137,237 @@
         }
       ];
 
+      const mediumHoles = [
+        {
+          name: "Paver Lane",
+          par: 3,
+          tee: { x: 110, y: 310 },
+          cup: { x: 690, y: 300 },
+          fairway: [[56, 220], [744, 220], [744, 380], [56, 380]],
+          bunkers: [{ x: 300, y: 255, rx: 56, ry: 18, rot: -0.2 }],
+          waters: [],
+          bumpers: [{ x: 470, y: 336, r: 24, color: "#888" }],
+          walls: [{ x1: 370, y1: 220, x2: 520, y2: 320, width: 14, color: "#777" }],
+          blocks: []
+        },
+        {
+          name: "Split Curb",
+          par: 3,
+          tee: { x: 118, y: 454 },
+          cup: { x: 675, y: 172 },
+          fairway: [[60, 516], [306, 516], [306, 380], [520, 380], [520, 258], [738, 258], [738, 112], [396, 112], [396, 224], [188, 224], [188, 342], [60, 342]],
+          bunkers: [{ x: 532, y: 174, rx: 62, ry: 21, rot: 0.08 }],
+          waters: [{ type: "ellipse", x: 380, y: 318, rx: 62, ry: 32, rot: 0.1 }],
+          bumpers: [],
+          walls: [],
+          blocks: []
+        },
+        {
+          name: "Granite Gate",
+          par: 3,
+          tee: { x: 102, y: 302 },
+          cup: { x: 696, y: 302 },
+          fairway: [[54, 180], [746, 180], [746, 420], [54, 420]],
+          bunkers: [],
+          waters: [],
+          bumpers: [{ x: 392, y: 236, r: 22, color: "#888" }, { x: 392, y: 364, r: 22, color: "#888" }],
+          walls: [{ x1: 282, y1: 180, x2: 282, y2: 276, width: 15, color: "#777" }, { x1: 506, y1: 324, x2: 506, y2: 420, width: 15, color: "#777" }],
+          blocks: []
+        },
+        {
+          name: "Water Skirt",
+          par: 4,
+          tee: { x: 110, y: 488 },
+          cup: { x: 686, y: 112 },
+          fairway: [[54, 532], [742, 532], [742, 72], [442, 72], [442, 198], [260, 198], [260, 356], [54, 356]],
+          bunkers: [{ x: 190, y: 430, rx: 58, ry: 22, rot: 0.4 }],
+          waters: [{ type: "poly", points: [[424, 360], [620, 376], [650, 466], [504, 506], [392, 452]] }],
+          bumpers: [{ x: 338, y: 270, r: 22, color: "#888" }],
+          walls: [{ x1: 442, y1: 198, x2: 700, y2: 198, width: 14, color: "#777" }],
+          blocks: []
+        },
+        {
+          name: "Double Dogleg",
+          par: 4,
+          tee: { x: 106, y: 116 },
+          cup: { x: 686, y: 484 },
+          fairway: [[58, 68], [348, 68], [348, 196], [596, 196], [596, 322], [742, 322], [742, 532], [456, 532], [456, 410], [208, 410], [208, 286], [58, 286]],
+          bunkers: [{ x: 278, y: 150, rx: 54, ry: 19, rot: -0.15 }, { x: 520, y: 470, rx: 66, ry: 21, rot: 0.2 }],
+          waters: [],
+          bumpers: [],
+          walls: [{ x1: 348, y1: 196, x2: 520, y2: 286, width: 14, color: "#777" }],
+          blocks: []
+        },
+        {
+          name: "Rail Yard",
+          par: 3,
+          tee: { x: 96, y: 300 },
+          cup: { x: 706, y: 300 },
+          fairway: [[48, 160], [752, 160], [752, 440], [48, 440]],
+          bunkers: [],
+          waters: [],
+          bumpers: [{ x: 332, y: 300, r: 20, color: "#888" }, { x: 466, y: 300, r: 20, color: "#888" }],
+          walls: [{ x1: 232, y1: 210, x2: 570, y2: 210, width: 14, color: "#777" }, { x1: 232, y1: 390, x2: 570, y2: 390, width: 14, color: "#777" }],
+          blocks: []
+        },
+        {
+          name: "Mill Pass",
+          par: 4,
+          tee: { x: 100, y: 300 },
+          cup: { x: 700, y: 300 },
+          fairway: [[52, 190], [748, 190], [748, 410], [52, 410]],
+          bunkers: [{ x: 232, y: 364, rx: 56, ry: 20, rot: 0.1 }, { x: 586, y: 236, rx: 56, ry: 20, rot: -0.1 }],
+          waters: [],
+          bumpers: [],
+          walls: [],
+          blocks: [{ type: "rect", x: 360, y: 190, w: 18, h: 58, color: "#777" }, { type: "rect", x: 422, y: 352, w: 18, h: 58, color: "#777" }],
+          windmill: { x: 400, y: 300, len: 52, width: 10, speed: 1.25, angle: 0 }
+        },
+        {
+          name: "S-Curve",
+          par: 4,
+          tee: { x: 104, y: 500 },
+          cup: { x: 700, y: 100 },
+          fairway: [[54, 540], [300, 540], [300, 420], [520, 420], [520, 300], [300, 300], [300, 180], [746, 180], [746, 60], [450, 60], [450, 120], [180, 120], [180, 240], [54, 240]],
+          bunkers: [{ x: 224, y: 470, rx: 54, ry: 19, rot: 0.1 }, { x: 430, y: 354, rx: 52, ry: 18, rot: -0.2 }],
+          waters: [{ type: "ellipse", x: 610, y: 240, rx: 60, ry: 30, rot: 0.12 }],
+          bumpers: [],
+          walls: [{ x1: 300, y1: 420, x2: 520, y2: 300, width: 14, color: "#777" }],
+          blocks: []
+        },
+        {
+          name: "Clubhouse Turn",
+          par: 4,
+          tee: { x: 106, y: 500 },
+          cup: { x: 686, y: 110 },
+          fairway: [[48, 548], [752, 548], [752, 62], [48, 62]],
+          bunkers: [{ x: 620, y: 470, rx: 64, ry: 22, rot: -0.2 }, { x: 230, y: 154, rx: 60, ry: 20, rot: 0.25 }],
+          waters: [{ type: "poly", points: [[390, 230], [516, 268], [508, 360], [360, 358], [320, 284]] }],
+          bumpers: [{ x: 666, y: 214, r: 22, color: "#888" }],
+          walls: [{ x1: 174, y1: 92, x2: 174, y2: 420, width: 15, color: "#777" }, { x1: 174, y1: 420, x2: 586, y2: 420, width: 15, color: "#777" }, { x1: 586, y1: 168, x2: 586, y2: 420, width: 15, color: "#777" }],
+          blocks: []
+        }
+      ];
+
+      const hardHoles = [
+        {
+          name: "Needle Start",
+          par: 3,
+          tee: { x: 94, y: 300 },
+          cup: { x: 706, y: 300 },
+          fairway: [[44, 240], [756, 240], [756, 360], [44, 360]],
+          bunkers: [{ x: 404, y: 300, rx: 70, ry: 18, rot: 0 }],
+          waters: [],
+          bumpers: [],
+          walls: [{ x1: 260, y1: 240, x2: 410, y2: 330, width: 16, color: "#777" }, { x1: 540, y1: 360, x2: 390, y2: 270, width: 16, color: "#777" }],
+          blocks: []
+        },
+        {
+          name: "Island Bend",
+          par: 4,
+          tee: { x: 104, y: 492 },
+          cup: { x: 690, y: 108 },
+          fairway: [[50, 540], [750, 540], [750, 60], [50, 60]],
+          bunkers: [{ x: 200, y: 440, rx: 56, ry: 20, rot: 0.3 }, { x: 612, y: 158, rx: 56, ry: 20, rot: -0.2 }],
+          waters: [{ type: "poly", points: [[248, 206], [586, 196], [662, 392], [454, 472], [224, 386]] }],
+          bumpers: [{ x: 352, y: 134, r: 20, color: "#888" }],
+          walls: [{ x1: 150, y1: 104, x2: 150, y2: 420, width: 15, color: "#777" }, { x1: 650, y1: 190, x2: 650, y2: 496, width: 15, color: "#777" }],
+          blocks: []
+        },
+        {
+          name: "Switchback",
+          par: 4,
+          tee: { x: 104, y: 104 },
+          cup: { x: 696, y: 498 },
+          fairway: [[48, 62], [752, 62], [752, 538], [48, 538]],
+          bunkers: [{ x: 312, y: 154, rx: 54, ry: 18, rot: -0.1 }, { x: 520, y: 442, rx: 54, ry: 18, rot: 0.1 }],
+          waters: [],
+          bumpers: [],
+          walls: [{ x1: 204, y1: 62, x2: 204, y2: 420, width: 16, color: "#777" }, { x1: 204, y1: 420, x2: 610, y2: 420, width: 16, color: "#777" }, { x1: 610, y1: 180, x2: 610, y2: 538, width: 16, color: "#777" }, { x1: 350, y1: 180, x2: 610, y2: 180, width: 16, color: "#777" }],
+          blocks: []
+        },
+        {
+          name: "Crosswind Mill",
+          par: 4,
+          tee: { x: 96, y: 300 },
+          cup: { x: 704, y: 300 },
+          fairway: [[48, 178], [752, 178], [752, 422], [48, 422]],
+          bunkers: [{ x: 230, y: 238, rx: 58, ry: 18, rot: 0.2 }, { x: 568, y: 362, rx: 58, ry: 18, rot: -0.2 }],
+          waters: [],
+          bumpers: [{ x: 312, y: 360, r: 19, color: "#888" }],
+          walls: [{ x1: 372, y1: 178, x2: 372, y2: 250, width: 15, color: "#777" }, { x1: 428, y1: 350, x2: 428, y2: 422, width: 15, color: "#777" }],
+          blocks: [],
+          windmill: { x: 400, y: 300, len: 62, width: 10, speed: 1.7, angle: 0 }
+        },
+        {
+          name: "Canal Maze",
+          par: 5,
+          tee: { x: 100, y: 500 },
+          cup: { x: 696, y: 98 },
+          fairway: [[44, 552], [756, 552], [756, 48], [44, 48]],
+          bunkers: [{ x: 672, y: 480, rx: 54, ry: 18, rot: 0.1 }, { x: 230, y: 126, rx: 54, ry: 18, rot: -0.1 }],
+          waters: [{ type: "poly", points: [[278, 246], [520, 246], [564, 330], [516, 390], [276, 390], [230, 320]] }],
+          bumpers: [{ x: 666, y: 210, r: 21, color: "#888" }, { x: 406, y: 470, r: 20, color: "#888" }],
+          walls: [{ x1: 172, y1: 80, x2: 172, y2: 420, width: 16, color: "#777" }, { x1: 172, y1: 420, x2: 590, y2: 420, width: 16, color: "#777" }, { x1: 590, y1: 154, x2: 590, y2: 420, width: 16, color: "#777" }, { x1: 332, y1: 154, x2: 590, y2: 154, width: 16, color: "#777" }],
+          blocks: []
+        },
+        {
+          name: "Rail Splitter",
+          par: 4,
+          tee: { x: 96, y: 302 },
+          cup: { x: 706, y: 302 },
+          fairway: [[46, 146], [754, 146], [754, 454], [46, 454]],
+          bunkers: [{ x: 406, y: 302, rx: 50, ry: 18, rot: 0 }],
+          waters: [],
+          bumpers: [{ x: 274, y: 228, r: 20, color: "#888" }, { x: 526, y: 376, r: 20, color: "#888" }],
+          walls: [{ x1: 190, y1: 210, x2: 610, y2: 210, width: 16, color: "#777" }, { x1: 190, y1: 394, x2: 610, y2: 394, width: 16, color: "#777" }, { x1: 400, y1: 210, x2: 400, y2: 394, width: 16, color: "#777" }],
+          blocks: []
+        },
+        {
+          name: "The Narrows",
+          par: 5,
+          tee: { x: 98, y: 500 },
+          cup: { x: 704, y: 96 },
+          fairway: [[48, 540], [754, 540], [754, 60], [48, 60]],
+          bunkers: [{ x: 164, y: 178, rx: 50, ry: 18, rot: 0.3 }],
+          waters: [{ type: "poly", points: [[454, 424], [560, 474], [550, 540], [404, 540], [372, 482]] }],
+          bumpers: [{ x: 430, y: 284, r: 22, color: "#888" }],
+          walls: [{ x1: 176, y1: 452, x2: 420, y2: 280, width: 16, color: "#777" }, { x1: 388, y1: 388, x2: 654, y2: 190, width: 16, color: "#777" }, { x1: 222, y1: 178, x2: 514, y2: 258, width: 16, color: "#777" }, { x1: 602, y1: 60, x2: 602, y2: 188, width: 16, color: "#777" }],
+          blocks: []
+        },
+        {
+          name: "Stone Spiral",
+          par: 5,
+          tee: { x: 104, y: 500 },
+          cup: { x: 400, y: 302 },
+          fairway: [[44, 552], [756, 552], [756, 48], [44, 48]],
+          bunkers: [{ x: 660, y: 474, rx: 58, ry: 20, rot: -0.2 }, { x: 144, y: 144, rx: 58, ry: 20, rot: 0.2 }],
+          waters: [],
+          bumpers: [{ x: 400, y: 302, r: 18, color: "#888" }],
+          walls: [{ x1: 164, y1: 92, x2: 164, y2: 448, width: 16, color: "#777" }, { x1: 164, y1: 448, x2: 638, y2: 448, width: 16, color: "#777" }, { x1: 638, y1: 142, x2: 638, y2: 448, width: 16, color: "#777" }, { x1: 278, y1: 142, x2: 638, y2: 142, width: 16, color: "#777" }, { x1: 278, y1: 142, x2: 278, y2: 346, width: 16, color: "#777" }, { x1: 278, y1: 346, x2: 520, y2: 346, width: 16, color: "#777" }, { x1: 520, y1: 230, x2: 520, y2: 346, width: 16, color: "#777" }],
+          blocks: []
+        },
+        {
+          name: "Final Gauntlet",
+          par: 5,
+          tee: { x: 96, y: 508 },
+          cup: { x: 704, y: 92 },
+          fairway: [[42, 556], [758, 556], [758, 44], [42, 44]],
+          bunkers: [{ x: 682, y: 490, rx: 58, ry: 20, rot: -0.2 }, { x: 250, y: 232, rx: 52, ry: 18, rot: 0.3 }],
+          waters: [{ type: "poly", points: [[604, 278], [724, 286], [724, 372], [644, 382], [586, 330]] }],
+          bumpers: [{ x: 682, y: 208, r: 23, color: "#888" }, { x: 408, y: 470, r: 21, color: "#888" }],
+          walls: [{ x1: 176, y1: 82, x2: 176, y2: 418, width: 16, color: "#777" }, { x1: 176, y1: 418, x2: 580, y2: 418, width: 16, color: "#777" }, { x1: 580, y1: 160, x2: 580, y2: 418, width: 16, color: "#777" }, { x1: 332, y1: 160, x2: 580, y2: 160, width: 16, color: "#777" }, { x1: 332, y1: 160, x2: 332, y2: 312, width: 16, color: "#777" }, { x1: 332, y1: 312, x2: 486, y2: 312, width: 16, color: "#777" }],
+          blocks: []
+        }
+      ];
+
+      const courses = [
+        { id: "easy", name: "Easy", holes: easyHoles },
+        { id: "medium", name: "Medium", holes: mediumHoles },
+        { id: "hard", name: "Hard", holes: hardHoles }
+      ];
+      let holes = easyHoles;
+
       const BEST_ROUND_KEY = "miniGolfBestRoundV1";
       const MP_NAME_KEY = "miniGolfPlayerNameV1";
       const MP_CLIENT_KEY = "miniGolfClientIdV1";
@@ -1127,6 +1377,7 @@
       const PLAYER_COLORS = ["#1f8c57", "#d94b4b", "#2f6fd6", "#9a55cf"];
       const DEFAULT_PLAYER_NAMES = ["Player 1", "Player 2", "Player 3", "Player 4"];
       let selectedPlayerCount = 1;
+      let selectedCourseId = "easy";
 
       const mp = {
         socket: null,
@@ -1241,8 +1492,9 @@
       }
 
       function updateBestRoundDisplay() {
+        const course = courses.find(item => item.id === selectedCourseId) || courses[0];
         if (selectedPlayerCount > 1) {
-          els.bestRound.textContent = `Pass-and-play mode: ${selectedPlayerCount} players`;
+          els.bestRound.textContent = `${course.name} course: ${selectedPlayerCount} players`;
           return;
         }
 
@@ -1252,13 +1504,21 @@
           return;
         }
         const delta = best.strokes - best.par;
-        els.bestRound.textContent = `Best round: ${best.strokes} strokes (${formatDelta(delta)})`;
+        els.bestRound.textContent = `${course.name} course. Best round: ${best.strokes} strokes (${formatDelta(delta)})`;
       }
 
       function setPlayerCount(count) {
         selectedPlayerCount = Math.max(1, Math.min(4, count));
         els.playerOptions.querySelectorAll(".player-option").forEach(button => {
           button.classList.toggle("active", Number(button.dataset.players) === selectedPlayerCount);
+        });
+        updateBestRoundDisplay();
+      }
+
+      function setCourse(courseId) {
+        selectedCourseId = courses.some(course => course.id === courseId) ? courseId : "easy";
+        els.courseOptions.querySelectorAll(".player-option").forEach(button => {
+          button.classList.toggle("active", button.dataset.course === selectedCourseId);
         });
         updateBestRoundDisplay();
       }
@@ -1665,6 +1925,7 @@
         resumeAudio();
         mp.enabled = false;
         game.course = null;
+        holes = (courses.find(course => course.id === selectedCourseId) || courses[0]).holes;
         els.nextButton.style.display = "";
         updateBestRoundDisplay();
         game.players = createPlayers(selectedPlayerCount);
@@ -1826,6 +2087,12 @@
         const button = evt.target.closest(".player-option");
         if (!button) return;
         setPlayerCount(Number(button.dataset.players));
+      }
+
+      function handleCourseOptionsClick(evt) {
+        const button = evt.target.closest(".player-option");
+        if (!button) return;
+        setCourse(button.dataset.course);
       }
 
       function showFinalScorecard() {
@@ -3692,6 +3959,7 @@
       });
       els.startButton.addEventListener("click", startGame);
       els.playerOptions.addEventListener("click", handlePlayerOptionsClick);
+      els.courseOptions.addEventListener("click", handleCourseOptionsClick);
       els.nextButton.addEventListener("pointerup", handleNextHoleInput);
       els.nextButton.addEventListener("click", handleNextHoleInput);
       els.againButton.addEventListener("click", startGame);
