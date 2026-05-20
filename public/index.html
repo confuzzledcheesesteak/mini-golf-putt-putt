@@ -1638,6 +1638,17 @@
         return { x: tee.x, y: tee.y, vx: 0, vy: 0, rot: 0, sunk: false, lastSafe: { x: tee.x, y: tee.y } };
       }
 
+      function createWaitingBall() {
+        return { x: -120, y: -120, vx: 0, vy: 0, rot: 0, sunk: false, hidden: true, lastSafe: { x: -120, y: -120 } };
+      }
+
+      function placePlayerOnTee(player) {
+        if (!mp.state || !player.waitingToTee) return;
+        const hole = holes[mp.state.holeIndex];
+        const ball = createMpBall(hole, 0, 1);
+        player.ball = ball;
+      }
+
       function cloneBall(ball) {
         return {
           x: ball.x,
@@ -1646,6 +1657,7 @@
           vy: ball.vy,
           rot: ball.rot || 0,
           sunk: Boolean(ball.sunk),
+          hidden: Boolean(ball.hidden),
           lastSafe: ball.lastSafe ? { x: ball.lastSafe.x, y: ball.lastSafe.y } : { x: ball.x, y: ball.y }
         };
       }
@@ -1668,20 +1680,24 @@
 
       function multiplayerBallsStopped() {
         if (!mp.state) return false;
-        return mp.state.players.every(player => player.completed || speed(player.ball) < STOP_SPEED);
+        return mp.state.players.every(player => player.completed || player.waitingToTee || player.ball.hidden || speed(player.ball) < STOP_SPEED);
       }
 
-      function chooseFarthestMultiplayerPlayer() {
+      function chooseNextMultiplayerPlayer() {
         if (!mp.state) return null;
         const hole = holes[mp.state.holeIndex];
-        const candidates = mp.state.players
-          .filter(player => !player.completed && !player.ball.sunk)
+        const waiting = mp.state.players
+          .filter(player => !player.completed && player.waitingToTee)
+          .sort((a, b) => a.index - b.index);
+        const candidates = (waiting.length ? waiting : mp.state.players
+          .filter(player => !player.completed && !player.ball.sunk && !player.ball.hidden)
           .sort((a, b) => {
             const ad = Math.hypot(a.ball.x - hole.cup.x, a.ball.y - hole.cup.y);
             const bd = Math.hypot(b.ball.x - hole.cup.x, b.ball.y - hole.cup.y);
-            return bd - ad || a.index - b.index;
-          });
+            return ad - bd || a.index - b.index;
+          }));
         mp.state.activeId = candidates[0]?.id || "";
+        placePlayerOnTee(candidates[0]);
         return candidates[0] || null;
       }
 
@@ -1697,12 +1713,13 @@
           scorecard: [],
           completed: false,
           penaltyLimit: false,
-          ball: createMpBall(hole, index, lobby.players.length)
+          waitingToTee: true,
+          ball: createWaitingBall()
         }));
         mp.state = { phase: STATES.PLAYING, holeIndex: 0, activeId: players[0]?.id || "", players, advanceAt: 0, celebrations: [] };
         mp.seenCelebrations = new Set();
         mp.displayPlayers = players.map(cloneMultiplayerPlayer);
-        chooseFarthestMultiplayerPlayer();
+        chooseNextMultiplayerPlayer();
         return mp.state;
       }
 
@@ -1913,9 +1930,10 @@
           player.strokes = 0;
           player.completed = false;
           player.penaltyLimit = false;
-          player.ball = createMpBall(hole, index, mp.state.players.length);
+          player.waitingToTee = true;
+          player.ball = createWaitingBall();
         });
-        chooseFarthestMultiplayerPlayer();
+        chooseNextMultiplayerPlayer();
         applyMultiplayerState(mp.state);
         sendMultiplayerState(true);
       }
@@ -1935,6 +1953,11 @@
         if (mp.state.activeId !== playerId || !multiplayerBallsStopped()) return;
         const player = mp.state.players.find(item => item.id === playerId);
         if (!player || player.completed) return;
+        if (player.waitingToTee || player.ball.hidden) {
+          placePlayerOnTee(player);
+        }
+        player.waitingToTee = false;
+        player.ball.hidden = false;
         player.ball.vx = vx;
         player.ball.vy = vy;
         player.ball.sunk = false;
@@ -2322,7 +2345,7 @@
 
       function updateMultiplayerBall(player, dt) {
         const ball = player.ball;
-        if (player.completed || ball.sunk) return;
+        if (player.completed || player.waitingToTee || ball.hidden || ball.sunk) return;
         const hole = holes[mp.state.holeIndex];
         const s = speed(ball);
 
@@ -2387,7 +2410,7 @@
         if (hole.windmill) hole.windmill.angle += hole.windmill.speed * dt;
         mp.state.players.forEach(player => updateMultiplayerBall(player, dt));
         collideMultiplayerBalls();
-        if (multiplayerBallsStopped()) chooseFarthestMultiplayerPlayer();
+        if (multiplayerBallsStopped()) chooseNextMultiplayerPlayer();
         maybeFinishMultiplayerHole();
         applyMultiplayerState(mp.state);
         sendMultiplayerState();
@@ -2920,6 +2943,7 @@
         if (!mp.state) return;
         const players = mp.isHost ? mp.state.players : (mp.displayPlayers.length ? mp.displayPlayers : mp.state.players);
         players.forEach(player => {
+          if (player.ball.hidden) return;
           drawOneBall(player.ball, player, player.id === mp.state.activeId);
         });
       }
