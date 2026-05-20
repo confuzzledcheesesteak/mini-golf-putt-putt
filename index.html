@@ -236,6 +236,14 @@
       width: 68px;
     }
 
+    .builder-size-controls {
+      display: none;
+    }
+
+    .builder-size-controls.visible {
+      display: flex;
+    }
+
     .builder-tools button {
       min-width: 0;
       padding: 8px 12px;
@@ -250,6 +258,21 @@
       font-size: 13px;
       font-weight: 900;
       text-align: center;
+    }
+
+    .main-menu-button {
+      position: absolute;
+      z-index: 9;
+      right: 14px;
+      bottom: 14px;
+      min-width: 0;
+      padding: 9px 13px;
+      font-size: 14px;
+      box-shadow: 0 4px 0 rgba(31, 140, 87, 0.34), 0 8px 14px rgba(22, 51, 58, 0.12);
+    }
+
+    .main-menu-button.hidden {
+      display: none;
     }
 
     .screen,
@@ -682,6 +705,11 @@
       .stat-grid {
         grid-template-columns: 1fr;
       }
+
+      .main-menu-button {
+        right: 8px;
+        bottom: 8px;
+      }
     }
   </style>
 </head>
@@ -721,6 +749,10 @@
           </select>
           <select id="savedHoleSelect" aria-label="Saved holes"></select>
         </div>
+        <div id="builderSizeControls" class="builder-row builder-size-controls">
+          <label>Width <input id="builderWidth" type="number" min="20" max="180" value="64" aria-label="Hazard width"></label>
+          <label>Height <input id="builderHeight" type="number" min="12" max="110" value="28" aria-label="Hazard height"></label>
+        </div>
         <div class="builder-row">
           <button id="saveBuilderButton" type="button">Save Hole</button>
           <button id="playBuilderButton" type="button">Play Saved</button>
@@ -729,6 +761,8 @@
         </div>
         <p id="builderStatus" class="builder-status">Choose a tool, then click the course. Walls use two clicks.</p>
       </div>
+
+      <button id="floatingMenuButton" class="main-menu-button secondary-button hidden" type="button">Main Menu</button>
 
       <div id="modeScreen" class="screen">
         <div class="start-panel">
@@ -872,12 +906,16 @@
         builderName: document.getElementById("builderName"),
         builderPar: document.getElementById("builderPar"),
         builderTool: document.getElementById("builderTool"),
+        builderSizeControls: document.getElementById("builderSizeControls"),
+        builderWidth: document.getElementById("builderWidth"),
+        builderHeight: document.getElementById("builderHeight"),
         savedHoleSelect: document.getElementById("savedHoleSelect"),
         saveBuilderButton: document.getElementById("saveBuilderButton"),
         playBuilderButton: document.getElementById("playBuilderButton"),
         newBuilderButton: document.getElementById("newBuilderButton"),
         builderBackButton: document.getElementById("builderBackButton"),
         builderStatus: document.getElementById("builderStatus"),
+        floatingMenuButton: document.getElementById("floatingMenuButton"),
         modeScreen: document.getElementById("modeScreen"),
         localModeButton: document.getElementById("localModeButton"),
         multiplayerModeButton: document.getElementById("multiplayerModeButton"),
@@ -1238,6 +1276,7 @@
         if (screen) screen.classList.remove("hidden");
         els.hud.classList.toggle("visible", game.state === STATES.PLAYING);
         els.builderTools.classList.add("hidden");
+        els.floatingMenuButton.classList.add("hidden");
       }
 
       function showModeMenu() {
@@ -1246,6 +1285,7 @@
         game.state = STATES.START;
         els.hud.classList.remove("visible");
         els.builderTools.classList.add("hidden");
+        els.floatingMenuButton.classList.add("hidden");
         showScreen(els.modeScreen);
       }
 
@@ -1321,7 +1361,26 @@
         els.hud.classList.remove("visible");
         els.powerMeter.classList.remove("visible");
         els.builderTools.classList.remove("hidden");
+        els.floatingMenuButton.classList.add("hidden");
+        updateBuilderSizeControls();
         setBuilderStatus("Choose a tool, then click the course. Walls use two clicks.");
+      }
+
+      function updateBuilderSizeControls() {
+        const tool = els.builderTool.value;
+        const visible = tool === "bunker" || tool === "water";
+        els.builderSizeControls.classList.toggle("visible", visible);
+        if (tool === "bunker") {
+          els.builderWidth.value = els.builderWidth.value || 64;
+          els.builderHeight.value = els.builderHeight.value || 28;
+          setBuilderStatus("Set bunker size, then click to place sand.");
+        } else if (tool === "water") {
+          els.builderWidth.value = els.builderWidth.value || 70;
+          els.builderHeight.value = els.builderHeight.value || 38;
+          setBuilderStatus("Set water size, then click to place water.");
+        } else if (game.state === STATES.BUILDER) {
+          setBuilderStatus(tool === "wall" ? "Walls use two clicks." : "Choose a tool, then click the course.");
+        }
       }
 
       function setBuilderStatus(message) {
@@ -1597,6 +1656,7 @@
         els.gameOver.classList.add("hidden");
         els.startScreen.classList.add("hidden");
         els.builderTools.classList.add("hidden");
+        els.floatingMenuButton.classList.remove("hidden");
         els.hud.classList.add("visible");
         updateHUD();
       }
@@ -1745,6 +1805,21 @@
         evt.preventDefault();
         evt.stopPropagation();
         nextHole();
+      }
+
+      function returnToMainMenu() {
+        if (mp.socket) {
+          mp.socket.disconnect();
+          mp.socket = null;
+        }
+        mp.enabled = false;
+        mp.state = null;
+        game.course = null;
+        game.dragging = false;
+        game.dragPower = 0;
+        game.confetti = [];
+        updatePowerMeter();
+        showModeMenu();
       }
 
       function handlePlayerOptionsClick(evt) {
@@ -3352,11 +3427,15 @@
           builder.hole.bumpers.push({ x: point.x, y: point.y, r: 24, color: "#ff7a7a" });
           setBuilderStatus("Added bumper.");
         } else if (tool === "bunker") {
-          builder.hole.bunkers.push({ x: point.x, y: point.y, rx: 64, ry: 24, rot: 0 });
-          setBuilderStatus("Added bunker.");
+          const rx = clamp(Number(els.builderWidth.value) || 64, 20, 180);
+          const ry = clamp(Number(els.builderHeight.value) || 28, 12, 110);
+          builder.hole.bunkers.push({ x: point.x, y: point.y, rx, ry, rot: 0 });
+          setBuilderStatus(`Added bunker (${rx} x ${ry}).`);
         } else if (tool === "water") {
-          builder.hole.waters.push({ type: "ellipse", x: point.x, y: point.y, rx: 62, ry: 34, rot: 0 });
-          setBuilderStatus("Added water.");
+          const rx = clamp(Number(els.builderWidth.value) || 70, 20, 180);
+          const ry = clamp(Number(els.builderHeight.value) || 38, 12, 110);
+          builder.hole.waters.push({ type: "ellipse", x: point.x, y: point.y, rx, ry, rot: 0 });
+          setBuilderStatus(`Added water (${rx} x ${ry}).`);
         } else if (tool === "wall") {
           if (!builder.pendingWall) {
             builder.pendingWall = { x: point.x, y: point.y };
@@ -3591,6 +3670,8 @@
       els.playBuilderButton.addEventListener("click", playSelectedCustomHole);
       els.newBuilderButton.addEventListener("click", newBuilderHole);
       els.builderBackButton.addEventListener("click", showModeMenu);
+      els.floatingMenuButton.addEventListener("click", returnToMainMenu);
+      els.builderTool.addEventListener("change", updateBuilderSizeControls);
       els.savedHoleSelect.addEventListener("change", () => {
         if (loadSelectedBuilderHole()) setBuilderStatus("Loaded saved hole.");
       });
